@@ -3,17 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useStore } from "@/lib/store";
-
-const NAV = [
-  { href: "/", label: "Tableau", icon: IconHome },
-  { href: "/facturas", label: "Facturas", icon: IconSheet },
-  { href: "/clients", label: "Clients", icon: IconPeople },
-  { href: "/parametres", label: "Réglages", icon: IconGear },
-];
+import { useStore, useT } from "@/lib/store";
+import { LanguageToggle } from "@/components/ui";
+import { activityForLocale, type Locale } from "@/lib/i18n";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { ready, settings } = useStore();
+  const { ready, settings, updateSettings } = useStore();
+  const t = useT();
   const pathname = usePathname();
   const router = useRouter();
   const isPrint = pathname.includes("/imprimer");
@@ -25,13 +21,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (settings.onboarded && isWelcome) router.replace("/");
   }, [ready, settings.onboarded, isWelcome, router]);
 
+  useEffect(() => {
+    if (!ready) return;
+    document.documentElement.lang = settings.locale === "fr" ? "fr" : "es";
+  }, [ready, settings.locale]);
+
+  function setLocale(locale: Locale) {
+    updateSettings({
+      locale,
+      activity: activityForLocale(settings.activity, locale),
+    });
+  }
+
+  const NAV = [
+    { href: "/", label: t.nav.dashboard, icon: IconHome },
+    { href: "/facturas", label: t.nav.facturas, icon: IconSheet },
+    { href: "/clients", label: t.nav.clients, icon: IconPeople },
+    { href: "/parametres", label: t.nav.settings, icon: IconGear },
+  ];
+
   if (!ready) {
     return (
       <div className="min-h-dvh grid place-items-center">
         <div className="text-center">
           <div className="stamp mx-auto text-lg">F</div>
           <p className="mt-3 font-display text-lg">Facturas</p>
-          <p className="text-sm text-muted">Ouverture du classeur…</p>
+          <p className="text-sm text-muted">{t.loading}</p>
         </div>
       </div>
     );
@@ -51,7 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <span>
             <span className="block font-display text-[1.15rem] leading-tight">Facturas</span>
             <span className="block text-[11px] uppercase tracking-[0.16em] text-muted">
-              crypto · EUR
+              {t.cryptoEur}
             </span>
           </span>
         </Link>
@@ -74,15 +89,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <p className="mt-auto pt-8 text-[11px] leading-relaxed text-muted">
-          Outil local. Pas un dépôt AEAT / Verifactu.
-        </p>
+        <div className="mt-auto pt-8 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-muted">{t.lang}</span>
+            <LanguageToggle locale={settings.locale} onChange={setLocale} />
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted">
+            {t.localTool}
+          </p>
+        </div>
       </aside>
 
       <div className="pb-24 md:pb-0">
         <header className="no-print md:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-paper/90 px-4 py-3 backdrop-blur">
           <span className="stamp text-sm">F</span>
           <span className="font-display text-lg">Facturas</span>
+          <span className="ml-auto">
+            <LanguageToggle locale={settings.locale} onChange={setLocale} />
+          </span>
         </header>
         <main className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-8">{children}</main>
       </div>

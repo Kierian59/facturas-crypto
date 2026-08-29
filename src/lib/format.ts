@@ -1,31 +1,28 @@
-const eurFmt = new Intl.NumberFormat("fr-FR", {
-  style: "currency",
-  currency: "EUR",
-});
+import type { Locale } from "./i18n";
 
-const numFmt = new Intl.NumberFormat("fr-FR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-
-const cryptoFmt = new Intl.NumberFormat("fr-FR", {
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 8,
-});
-
-export function formatEur(n: number): string {
-  if (!Number.isFinite(n)) return "—";
-  return eurFmt.format(n);
+function tag(locale: Locale | undefined): string {
+  return locale === "fr" ? "fr-FR" : "es-ES";
 }
 
-export function formatNum(n: number): string {
+export function formatEur(n: number, locale: Locale = "es"): string {
   if (!Number.isFinite(n)) return "—";
-  return numFmt.format(n);
+  return new Intl.NumberFormat(tag(locale), { style: "currency", currency: "EUR" }).format(n);
 }
 
-export function formatCrypto(n: number, asset: string): string {
+export function formatNum(n: number, locale: Locale = "es"): string {
   if (!Number.isFinite(n)) return "—";
-  return `${cryptoFmt.format(n)} ${asset}`;
+  return new Intl.NumberFormat(tag(locale), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+export function formatCrypto(n: number, asset: string, locale: Locale = "es"): string {
+  if (!Number.isFinite(n)) return "—";
+  return `${new Intl.NumberFormat(tag(locale), {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 8,
+  }).format(n)} ${asset}`;
 }
 
 export function isoDate(d = new Date()): string {

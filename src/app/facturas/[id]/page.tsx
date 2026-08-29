@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { InvoicePaper } from "@/components/InvoicePaper";
 import { Button, Empty, Field, Input, Select, StatusBadge, Textarea } from "@/components/ui";
-import { useStore } from "@/lib/store";
+import { useStore, useT } from "@/lib/store";
 import {
   formatEur,
   formatDate,
@@ -17,6 +17,8 @@ import {
 import { displayStatus, emitBlockers } from "@/lib/tax";
 import type { CryptoPayment, LineItem } from "@/lib/types";
 import { CRYPTO_ASSETS, NETWORKS } from "@/lib/types";
+import { aeatCotejoUrl, invoiceTotalEur } from "@/lib/aeat";
+import type { Dict } from "@/lib/i18n";
 
 export default function FacturaDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,15 +32,17 @@ export default function FacturaDetailPage() {
     duplicateInvoice,
     deleteInvoice,
   } = useStore();
+  const t = useT();
   const router = useRouter();
   const inv = invoices.find((x) => x.id === id);
   const client = clients.find((c) => c.id === inv?.clientId);
   const today = isoDate();
   const [payOpen, setPayOpen] = useState(false);
   const [msg, setMsg] = useState("");
+  const locale = settings.locale;
 
   if (!inv) {
-    return <Empty title="Factura introuvable" body="Elle n’est plus dans ce navigateur." />;
+    return <Empty title={t.facturas.notFound} body={t.facturas.notFoundBody} />;
   }
 
   const status = displayStatus(inv, today);
@@ -49,21 +53,41 @@ export default function FacturaDetailPage() {
     direccion: settings.direccion,
     clientBrand: client?.brand ?? "",
     clientCountry: client?.country ?? "",
+    clientAddress: client?.address ?? "",
     items: inv.items,
     issueDate: inv.issueDate,
+    locale,
   });
+  const cotejo =
+    inv.number && locked
+      ? aeatCotejoUrl({
+          nif: settings.nif,
+          numserie: inv.number,
+          issueDate: inv.issueDate,
+          total: invoiceTotalEur(inv),
+        })
+      : null;
 
   function patch(p: Partial<typeof inv>) {
     if (locked) return;
     upsertInvoice({ ...inv!, ...p, updatedAt: isoDate() });
   }
 
+  async function copyLink(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      setMsg(t.aeat.copied);
+    } catch {
+      setMsg(t.aeat.copyFail);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <p className="text-[11px] uppercase tracking-[0.18em] text-terracotta">Factura</p>
-          <h1 className="font-display text-3xl tabular">{inv.number ?? "Brouillon"}</h1>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-terracotta">{t.facturas.title}</p>
+          <h1 className="font-display text-3xl tabular">{inv.number ?? t.facturas.draft}</h1>
           <div className="mt-2 flex items-center gap-2">
             <StatusBadge status={status} />
             <span className="text-sm text-muted">{client?.brand}</span>
@@ -71,20 +95,20 @@ export default function FacturaDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href={`/facturas/${inv.id}/imprimer`}>
-            <Button variant="secondary">PDF / imprimer</Button>
+            <Button variant="secondary">{t.facturas.pdf}</Button>
           </Link>
           {!locked ? (
             <Button
-              onClick={() => {
-                const r = emitInvoice(inv.id);
-                setMsg(r.ok ? `Émise : ${r.number}` : r.error);
+              onClick={async () => {
+                const r = await emitInvoice(inv.id);
+                setMsg(r.ok ? t.facturas.emitted(r.number) : r.error);
               }}
               disabled={blockers.length > 0}
             >
-              Émettre
+              {t.facturas.emit}
             </Button>
           ) : inv.status !== "cobrada" ? (
-            <Button onClick={() => setPayOpen(true)}>Enregistrer un cobro</Button>
+            <Button onClick={() => setPayOpen(true)}>{t.facturas.recordCobro}</Button>
           ) : null}
         </div>
       </div>
@@ -92,7 +116,7 @@ export default function FacturaDetailPage() {
       {msg ? <p className="mb-3 text-sm text-olive">{msg}</p> : null}
       {!locked && blockers.length > 0 ? (
         <div className="mb-4 rounded-xl border border-line bg-paper-2 px-3 py-2 text-xs text-ink-soft">
-          Émission bloquée tant que le document n’est pas complet :
+          {t.facturas.emitBlocked}
           <ul className="list-disc ml-4 mt-1">
             {blockers.map((b) => (
               <li key={b.field}>{b.message}</li>
@@ -101,9 +125,31 @@ export default function FacturaDetailPage() {
         </div>
       ) : null}
 
+      {cotejo ? (
+        <div className="mb-4 paper-card rounded-2xl p-4 space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <a href={cotejo} target="_blank" rel="noreferrer">
+              <Button type="button">{t.aeat.verify}</Button>
+            </a>
+            <Button variant="ghost" type="button" onClick={() => void copyLink(cotejo)}>
+              {t.aeat.copyLink}
+            </Button>
+          </div>
+          <p className="text-xs leading-relaxed text-muted">{t.aeat.disclaimer}</p>
+          {inv.huella ? (
+            <p className="text-[11px] break-all text-muted">
+              {t.aeat.huella}: {inv.huella}
+              <span className="block mt-0.5">{t.aeat.huellaHint}</span>
+            </p>
+          ) : null}
+        </div>
+      ) : !locked ? (
+        <p className="mb-4 text-xs text-muted">{t.aeat.draftQr}</p>
+      ) : null}
+
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
-          <Field label="Client" required>
+          <Field label={t.facturas.client} required>
             <Select
               disabled={locked}
               value={inv.clientId}
@@ -117,7 +163,7 @@ export default function FacturaDetailPage() {
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Date d’émission" required>
+            <Field label={t.facturas.issueDate} required>
               <Input
                 type="date"
                 disabled={locked}
@@ -125,7 +171,7 @@ export default function FacturaDetailPage() {
                 onChange={(e) => patch({ issueDate: e.target.value })}
               />
             </Field>
-            <Field label="Échéance" optional>
+            <Field label={t.facturas.dueDate} optional>
               <Input
                 type="date"
                 disabled={locked}
@@ -140,6 +186,7 @@ export default function FacturaDetailPage() {
               index={i}
               item={it}
               locked={locked}
+              t={t}
               onChange={(next) =>
                 patch({ items: inv.items.map((x) => (x.id === it.id ? next : x)) })
               }
@@ -156,10 +203,10 @@ export default function FacturaDetailPage() {
                 })
               }
             >
-              + ligne
+              {t.facturas.addLine}
             </button>
           ) : null}
-          <Field label="IRPF %" optional>
+          <Field label={t.facturas.irpf} optional>
             <Input
               type="number"
               disabled={locked}
@@ -168,7 +215,7 @@ export default function FacturaDetailPage() {
               onChange={(e) => patch({ irpfRate: Number(e.target.value) || 0 })}
             />
           </Field>
-          <Field label="Notes" optional>
+          <Field label={t.clients.notes} optional>
             <Textarea
               disabled={locked}
               value={inv.notes}
@@ -179,22 +226,22 @@ export default function FacturaDetailPage() {
 
         <aside className="space-y-4">
           <div className="paper-card rounded-2xl p-4 text-sm">
-            <p className="text-muted">Base imponible</p>
-            <p className="font-display text-2xl tabular">{formatEur(invoiceBase(inv.items))}</p>
-            <p className="mt-2">IVA {formatEur(0)}</p>
-            <p className="font-medium mt-1">Total {formatEur(invoiceTotal(invoiceBase(inv.items), inv.irpfRate))}</p>
+            <p className="text-muted">{t.facturas.base}</p>
+            <p className="font-display text-2xl tabular">{formatEur(invoiceBase(inv.items), locale)}</p>
+            <p className="mt-2">{t.facturas.iva} {formatEur(0, locale)}</p>
+            <p className="font-medium mt-1">{t.facturas.total} {formatEur(invoiceTotal(invoiceBase(inv.items), inv.irpfRate), locale)}</p>
           </div>
           {inv.payment ? (
             <div className="paper-card rounded-2xl p-4 text-sm space-y-1">
-              <p className="text-[11px] uppercase tracking-wide text-terracotta">Cobro</p>
+              <p className="text-[11px] uppercase tracking-wide text-terracotta">{t.facturas.cobro}</p>
               <p>
-                {inv.payment.amount} {inv.payment.asset} = {formatEur(inv.payment.eurEquivalent)}
+                {inv.payment.amount} {inv.payment.asset} = {formatEur(inv.payment.eurEquivalent, locale)}
               </p>
               <p className="text-muted">
-                Taux {formatEur(inv.payment.rate)} / {inv.payment.asset} · {formatDate(inv.payment.rateDate)}
+                {t.facturas.rate} {formatEur(inv.payment.rate, locale)} / {inv.payment.asset} · {formatDate(inv.payment.rateDate)}
               </p>
               <p className="text-muted">{inv.payment.rateSource}</p>
-              {inv.cobroDate ? <p>Fecha de cobro {formatDate(inv.cobroDate)}</p> : null}
+              {inv.cobroDate ? <p>{t.pay.cobroDate} {formatDate(inv.cobroDate)}</p> : null}
             </div>
           ) : null}
           <Button
@@ -205,19 +252,19 @@ export default function FacturaDetailPage() {
               if (copy) router.push(`/facturas/${copy.id}`);
             }}
           >
-            Dupliquer en brouillon
+            {t.facturas.duplicate}
           </Button>
           {!locked ? (
             <Button
               variant="danger"
               className="w-full"
               onClick={() => {
-                if (!confirm("Supprimer ce brouillon ?")) return;
+                if (!confirm(t.facturas.confirmDelete)) return;
                 deleteInvoice(inv.id);
                 router.push("/facturas");
               }}
             >
-              Supprimer le brouillon
+              {t.facturas.deleteDraft}
             </Button>
           ) : null}
         </aside>
@@ -228,13 +275,15 @@ export default function FacturaDetailPage() {
           defaultAsset={settings.defaultAsset}
           wallets={settings.wallets}
           expectedEur={invoiceTotal(invoiceBase(inv.items), inv.irpfRate)}
+          locale={locale}
+          t={t}
           onClose={() => setPayOpen(false)}
           onSave={(payment, cobroDate) => {
             const r = recordPayment(inv.id, payment, cobroDate);
             if (!r.ok) setMsg(r.error);
             else {
               setPayOpen(false);
-              setMsg("Marquée cobrada.");
+              setMsg(t.facturas.markedCobrada);
             }
           }}
         />
@@ -251,18 +300,20 @@ function LineEditor({
   item,
   index,
   locked,
+  t,
   onChange,
   onRemove,
 }: {
   item: LineItem;
   index: number;
   locked: boolean;
+  t: Dict;
   onChange: (i: LineItem) => void;
   onRemove: () => void;
 }) {
   return (
     <div className="paper-card rounded-2xl p-3 space-y-2">
-      <Field label={`Ligne ${index + 1}`} required>
+      <Field label={t.facturas.line(index + 1)} required>
         <Textarea
           disabled={locked}
           rows={2}
@@ -271,7 +322,7 @@ function LineEditor({
         />
       </Field>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Qté">
+        <Field label={t.facturas.qty}>
           <Input
             type="number"
             disabled={locked}
@@ -290,7 +341,7 @@ function LineEditor({
       </div>
       {!locked ? (
         <button type="button" className="text-xs text-danger" onClick={onRemove}>
-          Retirer
+          {t.facturas.remove}
         </button>
       ) : null}
     </div>
@@ -301,12 +352,16 @@ function PaymentModal({
   defaultAsset,
   wallets,
   expectedEur,
+  locale,
+  t,
   onClose,
   onSave,
 }: {
   defaultAsset: string;
   wallets: { id: string; label: string; asset: string; network: string; address: string }[];
   expectedEur: number;
+  locale: "fr" | "es";
+  t: Dict;
   onClose: () => void;
   onSave: (p: CryptoPayment, cobroDate: string) => void;
 }) {
@@ -314,7 +369,7 @@ function PaymentModal({
   const [amount, setAmount] = useState(expectedEur);
   const [eur, setEur] = useState(expectedEur);
   const [rateDate, setRateDate] = useState(isoDate());
-  const [rateSource, setRateSource] = useState("Manuel");
+  const [rateSource, setRateSource] = useState(t.pay.rateManual);
   const [txHash, setTxHash] = useState("");
   const [network, setNetwork] = useState(NETWORKS[asset]?.[0] ?? "");
   const [walletId, setWalletId] = useState(wallets[0]?.id ?? "");
@@ -323,15 +378,17 @@ function PaymentModal({
   const wallet = wallets.find((w) => w.id === walletId);
   const rate = amount > 0 ? eur / amount : 0;
 
+  function netLabel(n: string) {
+    return n === "Autre" ? t.networkOther : n;
+  }
+
   return (
     <div className="fixed inset-0 z-40 grid place-items-end md:place-items-center bg-ink/40 p-0 md:p-4">
       <div className="paper-card w-full max-w-md rounded-t-2xl md:rounded-2xl p-5 max-h-[92dvh] overflow-auto">
-        <h2 className="font-display text-xl">Encaissement crypto</h2>
-        <p className="text-xs text-muted mt-1 mb-4">
-          L’équivalent EUR est obligatoire (fecha de cobro). Pas de cours auto : tu saisis le taux.
-        </p>
+        <h2 className="font-display text-xl">{t.pay.title}</h2>
+        <p className="text-xs text-muted mt-1 mb-4">{t.pay.intro}</p>
         <div className="space-y-3">
-          <Field label="Actif" required>
+          <Field label={t.pay.asset} required>
             <Select
               value={asset}
               onChange={(e) => {
@@ -345,58 +402,60 @@ function PaymentModal({
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label={`Montant ${asset}`} required>
+            <Field label={t.pay.amount(asset)} required>
               <Input type="number" step="any" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
             </Field>
-            <Field label="Équivalent EUR" required hint="Requis pour marquer cobrada.">
+            <Field label={t.pay.eurEq} required hint={t.pay.eurHint}>
               <Input type="number" step="0.01" value={eur} onChange={(e) => setEur(Number(e.target.value))} />
             </Field>
           </div>
           <p className="text-xs text-muted tabular">
-            Taux implicite : 1 {asset} = {formatEur(rate)}
+            {t.pay.implied(asset, formatEur(rate, locale))}
           </p>
-          <Field label="Date du taux" required>
+          <Field label={t.pay.rateDate} required>
             <Input type="date" value={rateDate} onChange={(e) => setRateDate(e.target.value)} />
           </Field>
-          <Field label="Source du taux" optional hint="Ex. Binance, capture d’écran, banque…">
+          <Field label={t.pay.rateSource} optional hint={t.pay.rateSourceHint}>
             <Input value={rateSource} onChange={(e) => setRateSource(e.target.value)} />
           </Field>
-          <Field label="Fecha de cobro" required>
+          <Field label={t.pay.cobroDate} required>
             <Input type="date" value={cobroDate} onChange={(e) => setCobroDate(e.target.value)} />
           </Field>
-          <Field label="Réseau" optional>
+          <Field label={t.pay.network} optional>
             <Select value={network} onChange={(e) => setNetwork(e.target.value)}>
               {(NETWORKS[asset] ?? ["Autre"]).map((n) => (
-                <option key={n}>{n}</option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Portefeuille" optional>
-            <Select value={walletId} onChange={(e) => setWalletId(e.target.value)}>
-              {wallets.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.label || w.asset} · {w.network}
+                <option key={n} value={n}>
+                  {netLabel(n)}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label="Hash de transaction" optional>
+          <Field label={t.pay.wallet} optional>
+            <Select value={walletId} onChange={(e) => setWalletId(e.target.value)}>
+              {wallets.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.label || w.asset} · {netLabel(w.network)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t.pay.txHash} optional>
             <Input value={txHash} onChange={(e) => setTxHash(e.target.value)} />
           </Field>
         </div>
         {err ? <p className="mt-2 text-sm text-danger">{err}</p> : null}
         <div className="mt-4 flex gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Annuler
+            {t.pay.cancel}
           </Button>
           <Button
             onClick={() => {
               if (!eur || eur <= 0) {
-                setErr("Saisis l’équivalent EUR.");
+                setErr(t.errors.eurAmount);
                 return;
               }
               if (!amount || amount <= 0) {
-                setErr("Saisis le montant crypto.");
+                setErr(t.errors.cryptoAmount);
                 return;
               }
               onSave(
@@ -416,7 +475,7 @@ function PaymentModal({
               );
             }}
           >
-            Marquer cobrada
+            {t.pay.mark}
           </Button>
         </div>
       </div>

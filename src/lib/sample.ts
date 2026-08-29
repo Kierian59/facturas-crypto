@@ -1,12 +1,14 @@
 import type { Database, Client, Invoice } from "./types";
 import { emptySettings } from "./types";
 import { uid, isoDate, addDays } from "./format";
+import { DEFAULT_ACTIVITY, type Locale } from "./i18n";
 
 export function canLoadSample(db: Database): boolean {
   return !db.settings.onboarded && db.clients.length === 0 && db.invoices.length === 0;
 }
 
-export function buildSample(): Database {
+export function buildSample(locale: Locale = "es"): Database {
+  const es = locale !== "fr";
   const today = isoDate();
   const lastMonth = addDays(today, -28);
   const twoMonths = addDays(today, -55);
@@ -15,13 +17,14 @@ export function buildSample(): Database {
 
   const settings = emptySettings();
   settings.onboarded = true;
+  settings.locale = locale;
   settings.nombre = "Camille Navarro";
   settings.nif = "12345678Z";
   settings.direccion = "Carrer de la Pau 14, 3º";
   settings.ciudad = "València";
   settings.cp = "46003";
   settings.email = "camille@estudio-navarro.example";
-  settings.activity = "Création de contenus et publications sociales pour des marques.";
+  settings.activity = DEFAULT_ACTIVITY[locale];
   settings.defaultAsset = "USDT";
   settings.wallets = [
     {
@@ -45,22 +48,26 @@ export function buildSample(): Database {
   const c1: Client = {
     id: "c-northstar",
     brand: "Northstar Athletics",
-    country: "États-Unis",
+    country: es ? "Estados Unidos" : "États-Unis",
     countryCode: "US",
+    address: "1200 Market Street, Suite 400, Austin, TX 78701",
     taxId: "EIN 87-0000000",
     email: "finance@northstar.example",
-    notes: "Calendrier mensuel Instagram + TikTok. Contact: Jordan.",
+    notes: es
+      ? "Calendario mensual Instagram + TikTok. Contacto: Jordan."
+      : "Calendrier mensuel Instagram + TikTok. Contact: Jordan.",
     horsUE: true,
     createdAt: twoMonths,
   };
   const c2: Client = {
     id: "c-kite",
     brand: "Kite & Loom",
-    country: "Royaume-Uni",
+    country: es ? "Reino Unido" : "Royaume-Uni",
     countryCode: "GB",
+    address: "14 Brick Lane, London E1 6QL",
     taxId: "UT 000000000",
     email: "ap@kiteandloom.example",
-    notes: "Stories produit, 8 pièces / mois.",
+    notes: es ? "Stories de producto, 8 piezas / mes." : "Stories produit, 8 pièces / mois.",
     horsUE: true,
     createdAt: lastMonth,
   };
@@ -76,7 +83,9 @@ export function buildSample(): Database {
     items: [
       {
         id: uid("li"),
-        description: "Création et publication de contenus sociaux — forfait février (12 pièces Instagram + 8 TikTok)",
+        description: es
+          ? "Creación y publicación de contenidos sociales — pack febrero (12 piezas Instagram + 8 TikTok)"
+          : "Création et publication de contenus sociaux — forfait février (12 pièces Instagram + 8 TikTok)",
         quantity: 1,
         unitPriceEur: 2400,
       },
@@ -89,12 +98,15 @@ export function buildSample(): Database {
       eurEquivalent: 2400,
       rate: 2400 / 2610,
       rateDate: lastMonth,
-      rateSource: "Manuel — cours Binance au jour de l'encaissement",
+      rateSource: es
+        ? "Manual — cotización Binance el día del cobro"
+        : "Manuel — cours Binance au jour de l'encaissement",
       txHash: "0xdemo0000000000000000000000000000000001",
       network: "TRC20",
       walletId: "w-usdt",
       walletAddress: settings.wallets[0].address,
     },
+    huella: "",
     createdAt: twoMonths,
     updatedAt: lastMonth,
   };
@@ -110,20 +122,25 @@ export function buildSample(): Database {
     items: [
       {
         id: uid("li"),
-        description: "Direction artistique et calendrier éditorial — mars (8 stories produit)",
+        description: es
+          ? "Dirección artística y calendario editorial — marzo (8 stories de producto)"
+          : "Direction artistique et calendrier éditorial — mars (8 stories produit)",
         quantity: 1,
         unitPriceEur: 1800,
       },
       {
         id: uid("li"),
-        description: "Tournage UGC additionnel (3 capsules)",
+        description: es
+          ? "Rodaje UGC adicional (3 cápsulas)"
+          : "Tournage UGC additionnel (3 capsules)",
         quantity: 3,
         unitPriceEur: 220,
       },
     ],
-    notes: "Paiement USDT TRC20 à réception.",
+    notes: es ? "Pago USDT TRC20 a la recepción." : "Paiement USDT TRC20 à réception.",
     irpfRate: 0,
     payment: null,
+    huella: "",
     createdAt: lastMonth,
     updatedAt: lastMonth,
   };
@@ -139,7 +156,9 @@ export function buildSample(): Database {
     items: [
       {
         id: uid("li"),
-        description: "Série Reels « training week » — 6 publications",
+        description: es
+          ? "Serie Reels « training week » — 6 publicaciones"
+          : "Série Reels « training week » — 6 publications",
         quantity: 1,
         unitPriceEur: 950,
       },
@@ -147,6 +166,7 @@ export function buildSample(): Database {
     notes: "",
     irpfRate: 0,
     payment: null,
+    huella: "",
     createdAt: addDays(today, -40),
     updatedAt: addDays(today, -40),
   };
@@ -162,7 +182,9 @@ export function buildSample(): Database {
     items: [
       {
         id: uid("li"),
-        description: "Forfait avril — contenus organiques (à confirmer)",
+        description: es
+          ? "Pack abril — contenidos orgánicos (por confirmar)"
+          : "Forfait avril — contenus organiques (à confirmer)",
         quantity: 1,
         unitPriceEur: 1800,
       },
@@ -170,12 +192,13 @@ export function buildSample(): Database {
     notes: "",
     irpfRate: 0,
     payment: null,
+    huella: "",
     createdAt: today,
     updatedAt: today,
   };
 
   return {
-    version: 1,
+    version: 2,
     settings,
     clients: [c1, c2],
     invoices: [invPaid, invOpen, invLate, invDraft],

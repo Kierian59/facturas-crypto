@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,6 +15,8 @@ import { emptyDatabase, emptySettings } from "./types";
 import { loadDb, saveDb, parseImport } from "./storage";
 import { padSeq, uid, isoDate } from "./format";
 import { canLoadSample, buildSample } from "./sample";
+import { dict, type Dict } from "./i18n";
+import { invoiceHuella } from "./aeat";
 
 type Store = {
   ready: boolean;
@@ -27,7 +30,7 @@ type Store = {
   upsertClient: (c: Client) => void;
   deleteClient: (id: string) => void;
   upsertInvoice: (inv: Invoice) => void;
-  emitInvoice: (id: string) => { ok: true; number: string } | { ok: false; error: string };
+  emitInvoice: (id: string) => Promise<{ ok: true; number: string } | { ok: false; error: string }>;
   recordPayment: (id: string, payment: CryptoPayment, cobroDate: string) => { ok: true } | { ok: false; error: string };
   duplicateInvoice: (id: string) => Invoice | null;
   deleteInvoice: (id: string) => void;
@@ -43,9 +46,12 @@ const Ctx = createContext<Store | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [db, setDb] = useState<Database>(emptyDatabase);
   const [ready, setReady] = useState(false);
+  const dbRef = useRef(db);
 
   useEffect(() => {
-    setDb(loadDb());
+    const loaded = loadDb();
+    dbRef.current = loaded;
+    setDb(loaded);
     setReady(true);
   }, []);
 
@@ -55,7 +61,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [db, ready]);
 
   const mutate = useCallback((fn: (prev: Database) => Database) => {
-    setDb((prev) => fn(prev));
+    const next = fn(dbRef.current);
+    dbRef.current = next;
+    setDb(next);
   }, []);
 
   const updateSettings = useCallback(
@@ -75,7 +83,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = useCallback(
     (s: Settings) => {
       mutate(() => ({
-        version: 1,
+        version: 2,
         settings: { ...s, onboarded: true },
         clients: [],
         invoices: [],
@@ -117,31 +125,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [mutate],
   );
 
-  const emitInvoice = useCallback((id: string) => {
+  const emitInvoice = useCallback(async (id: string) => {
+    const d = dbRef.current;
+    const t = dict(d.settings.locale);
+    const inv = d.invoices.find((x) => x.id === id);
+    if (!inv) return { ok: false as const, error: t.errors.invoiceNotFound };
+    if (inv.status !== "brouillon") return { ok: false as const, error: t.errors.onlyDrafts };
+    const number = `${d.settings.seriesPrefix}${padSeq(d.settings.nextSeq)}`;
+    const now = isoDate();
+    const issueDate = inv.issueDate || now;
+    const huella = await invoiceHuella({ ...inv, number, issueDate }, d.settings.nif);
     let result: { ok: true; number: string } | { ok: false; error: string } = {
-      ok: false,
-      error: "Factura introuvable.",
+      ok: true,
+      number,
     };
-    mutate((d) => {
-      const inv = d.invoices.find((x) => x.id === id);
-      if (!inv) return d;
-      if (inv.status !== "brouillon") {
-        result = { ok: false, error: "Seuls les brouillons peuvent être émis." };
-        return d;
+    mutate((prev) => {
+      const current = prev.invoices.find((x) => x.id === id);
+      if (!current || current.status !== "brouillon") {
+        result = { ok: false, error: dict(prev.settings.locale).errors.onlyDrafts };
+        return prev;
       }
-      const number = `${d.settings.seriesPrefix}${padSeq(d.settings.nextSeq)}`;
-      const now = isoDate();
-      result = { ok: true, number };
       return {
-        ...d,
-        settings: { ...d.settings, nextSeq: d.settings.nextSeq + 1 },
-        invoices: d.invoices.map((x) =>
+        ...prev,
+        settings: { ...prev.settings, nextSeq: prev.settings.nextSeq + 1 },
+        invoices: prev.invoices.map((x) =>
           x.id === id
             ? {
                 ...x,
                 number,
                 status: "emise" as const,
                 issueDate: x.issueDate || now,
+                huella,
                 updatedAt: now,
               }
             : x,
@@ -152,14 +166,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [mutate]);
 
   const recordPayment = useCallback((id: string, payment: CryptoPayment, cobroDate: string) => {
-    if (!payment.eurEquivalent || payment.eurEquivalent <= 0) {
-      return { ok: false as const, error: "L'équivalent EUR est obligatoire pour marquer cobrada." };
-    }
-    let ok = false;
+    let result: { ok: true } | { ok: false; error: string } = { ok: true };
     mutate((d) => {
+      const t = dict(d.settings.locale);
+      if (!payment.eurEquivalent || payment.eurEquivalent <= 0) {
+        result = { ok: false, error: t.errors.eurRequired };
+        return d;
+      }
       const inv = d.invoices.find((x) => x.id === id);
-      if (!inv || inv.status === "brouillon") return d;
-      ok = true;
+      if (!inv || inv.status === "brouillon") {
+        result = { ok: false, error: t.errors.invoiceDraft };
+        return d;
+      }
       return {
         ...d,
         invoices: d.invoices.map((x) =>
@@ -175,7 +193,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ),
       };
     });
-    return ok ? { ok: true as const } : { ok: false as const, error: "Factura introuvable ou encore brouillon." };
+    return result;
   }, [mutate]);
 
   const duplicateInvoice = useCallback((id: string) => {
@@ -193,6 +211,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         dueDate: inv.dueDate,
         cobroDate: "",
         payment: null,
+        huella: "",
         items: inv.items.map((it) => ({ ...it, id: uid("li") })),
         createdAt: now,
         updatedAt: now,
@@ -220,11 +239,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!canLoadSample(d)) {
         result = {
           ok: false,
-          error: "Données d'exemple ignorées : tu es déjà configuré·e. Ça évite de polluer ton fichier.",
+          error: dict(d.settings.locale).errors.sampleSkipped,
         };
         return d;
       }
-      return buildSample();
+      return buildSample(d.settings.locale ?? "es");
     });
     return result;
   }, [mutate]);
@@ -234,15 +253,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const importData = useCallback((text: string) => {
     try {
       const next = parseImport(text);
+      dbRef.current = next;
       setDb(next);
       return { ok: true as const };
     } catch {
-      return { ok: false as const, error: "JSON illisible." };
+      return { ok: false as const, error: dict("es").errors.badJson };
     }
   }, []);
 
   const resetAll = useCallback(() => {
-    setDb({ version: 1, settings: emptySettings(), clients: [], invoices: [] });
+    const empty = { version: 2 as const, settings: emptySettings(), clients: [], invoices: [] };
+    dbRef.current = empty;
+    setDb(empty);
   }, []);
 
   const value = useMemo<Store>(
@@ -295,4 +317,9 @@ export function useStore(): Store {
   const ctx = useContext(Ctx);
   if (!ctx) throw new Error("useStore hors StoreProvider");
   return ctx;
+}
+
+export function useT(): Dict {
+  const { settings } = useStore();
+  return dict(settings.locale);
 }

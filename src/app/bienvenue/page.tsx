@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Field, Input, Select, Textarea } from "@/components/ui";
-import { useStore } from "@/lib/store";
+import { Button, Field, Input, LanguageToggle, Select, Textarea } from "@/components/ui";
+import { useStore, useT } from "@/lib/store";
 import { emptySettings, CRYPTO_ASSETS, NETWORKS, type Settings, type Wallet } from "@/lib/types";
 import { uid } from "@/lib/format";
+import { activityForLocale, type Locale } from "@/lib/i18n";
 
 export default function BienvenuePage() {
-  const { completeOnboarding, loadSample, sampleAvailable, settings } = useStore();
+  const { completeOnboarding, loadSample, sampleAvailable, settings, updateSettings } = useStore();
+  const t = useT();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<Settings>(() => ({ ...emptySettings(), ...pick(settings) }));
@@ -18,11 +20,23 @@ export default function BienvenuePage() {
     setForm((f) => ({ ...f, [k]: v }));
   }
 
+  function setLocale(locale: Locale) {
+    setForm((f) => ({
+      ...f,
+      locale,
+      activity: activityForLocale(f.activity, locale),
+    }));
+    updateSettings({
+      locale,
+      activity: activityForLocale(form.activity, locale),
+    });
+  }
+
   function next() {
     setError("");
     if (step === 0) {
       if (!form.nombre.trim() || !form.nif.trim() || !form.direccion.trim()) {
-        setError("Nom, NIF/NIE et adresse sont requis pour émettre une factura.");
+        setError(t.onboarding.step0Error);
         return;
       }
     }
@@ -40,54 +54,53 @@ export default function BienvenuePage() {
     else setError(r.error);
   }
 
+  function netLabel(n: string) {
+    return n === "Autre" ? t.networkOther : n;
+  }
+
   return (
     <div className="min-h-dvh flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="flex items-center gap-3 mb-6">
           <span className="stamp">F</span>
-          <div>
+          <div className="flex-1">
             <p className="font-display text-2xl leading-tight">Facturas</p>
-            <p className="text-xs uppercase tracking-[0.16em] text-muted">classeur crypto · EUR</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted">{t.onboarding.tagline}</p>
           </div>
+          <LanguageToggle locale={form.locale} onChange={setLocale} />
         </div>
 
         <div className="paper-card rounded-2xl p-6 md:p-8">
           <p className="text-[11px] uppercase tracking-[0.18em] text-terracotta">
-            Étape {step + 1} / 4
+            {t.onboarding.stepOf(step + 1, 4)}
           </p>
           {step === 0 && (
-            <Step
-              title="Toi, sur la factura"
-              body="Ces champs figurent sur chaque document. Tu pourras les modifier plus tard."
-            >
-              <Field label="Nom / raison" required hint="Tel que tu veux l'imprimer (prénom + nom, ou nom commercial).">
+            <Step title={t.onboarding.step0Title} body={t.onboarding.step0Body}>
+              <Field label={t.onboarding.name} required hint={t.onboarding.nameHint}>
                 <Input value={form.nombre} onChange={(e) => set("nombre", e.target.value)} placeholder="Camille Navarro" />
               </Field>
-              <Field label="NIF / NIE" required hint="Identifiant fiscal espagnol de l'émetteur.">
+              <Field label={t.onboarding.nif} required hint={t.onboarding.nifHint}>
                 <Input value={form.nif} onChange={(e) => set("nif", e.target.value.toUpperCase())} placeholder="12345678Z" />
               </Field>
-              <Field label="Adresse (Espagne)" required>
+              <Field label={t.onboarding.addressEs} required>
                 <Input value={form.direccion} onChange={(e) => set("direccion", e.target.value)} placeholder="Calle…" />
               </Field>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Code postal" optional>
+                <Field label={t.onboarding.cp} optional>
                   <Input value={form.cp} onChange={(e) => set("cp", e.target.value)} />
                 </Field>
-                <Field label="Ville" optional>
+                <Field label={t.onboarding.city} optional>
                   <Input value={form.ciudad} onChange={(e) => set("ciudad", e.target.value)} />
                 </Field>
               </div>
-              <Field label="E-mail" optional>
+              <Field label={t.onboarding.email} optional>
                 <Input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} />
               </Field>
             </Step>
           )}
           {step === 1 && (
-            <Step
-              title="Ton activité"
-              body="Une phrase suffit : elle rappelle la nature des services sur la factura."
-            >
-              <Field label="Libellé d'activité" required>
+            <Step title={t.onboarding.step1Title} body={t.onboarding.step1Body}>
+              <Field label={t.onboarding.activity} required>
                 <Textarea
                   value={form.activity}
                   onChange={(e) => set("activity", e.target.value)}
@@ -97,11 +110,8 @@ export default function BienvenuePage() {
             </Step>
           )}
           {step === 2 && (
-            <Step
-              title="Crypto de règlement"
-              body="La factura reste en EUR. Ici tu indiques comment on te paie."
-            >
-              <Field label="Actif par défaut" hint="USDT convient bien aux marques US / UK.">
+            <Step title={t.onboarding.step2Title} body={t.onboarding.step2Body}>
+              <Field label={t.onboarding.defaultAsset} hint={t.onboarding.defaultAssetHint}>
                 <Select value={form.defaultAsset} onChange={(e) => set("defaultAsset", e.target.value)}>
                   {CRYPTO_ASSETS.map((a) => (
                     <option key={a}>{a}</option>
@@ -112,6 +122,14 @@ export default function BienvenuePage() {
                 <WalletFields
                   key={w.id}
                   wallet={w}
+                  netLabel={netLabel}
+                  labels={{
+                    label: t.onboarding.walletLabel,
+                    asset: t.onboarding.asset,
+                    network: t.onboarding.network,
+                    address: t.onboarding.walletAddress,
+                    addressHint: t.onboarding.walletAddressHint,
+                  }}
                   onChange={(next) => {
                     const wallets = form.wallets.slice();
                     wallets[i] = next;
@@ -129,22 +147,16 @@ export default function BienvenuePage() {
                   ])
                 }
               >
-                + autre adresse
+                {t.onboarding.addWallet}
               </button>
             </Step>
           )}
           {step === 3 && (
-            <Step
-              title="Numérotation"
-              body="Série séquentielle : une fois émise, une factura garde son numéro. On ne saute pas."
-            >
-              <Field
-                label="Préfixe de série"
-                hint="Ex. F-2026- donnera F-2026-0001, puis 0002…"
-              >
+            <Step title={t.onboarding.step3Title} body={t.onboarding.step3Body}>
+              <Field label={t.onboarding.seriesPrefix} hint={t.onboarding.seriesHint}>
                 <Input value={form.seriesPrefix} onChange={(e) => set("seriesPrefix", e.target.value)} />
               </Field>
-              <Field label="Prochain numéro" hint="Laisse 1 si tu commences cette série.">
+              <Field label={t.onboarding.nextSeq} hint={t.onboarding.nextSeqHint}>
                 <Input
                   type="number"
                   min={1}
@@ -152,10 +164,7 @@ export default function BienvenuePage() {
                   onChange={(e) => set("nextSeq", Math.max(1, Number(e.target.value) || 1))}
                 />
               </Field>
-              <p className="text-xs text-muted">
-                Cadence par défaut : trimestrielle (modelo 303 et modelo 130, fenêtres ~1–20 avril /
-                juillet / octobre / janvier).
-              </p>
+              <p className="text-xs text-muted">{t.onboarding.cadence}</p>
             </Step>
           )}
 
@@ -164,16 +173,16 @@ export default function BienvenuePage() {
           <div className="mt-6 flex flex-wrap gap-2">
             {step > 0 ? (
               <Button variant="ghost" type="button" onClick={() => setStep((s) => s - 1)}>
-                Retour
+                {t.onboarding.back}
               </Button>
             ) : null}
             {step < 3 ? (
               <Button type="button" onClick={next}>
-                Continuer
+                {t.onboarding.continue}
               </Button>
             ) : (
               <Button type="button" onClick={finish}>
-                Ouvrir le classeur
+                {t.onboarding.finish}
               </Button>
             )}
           </div>
@@ -181,11 +190,11 @@ export default function BienvenuePage() {
 
         {sampleAvailable ? (
           <p className="mt-5 text-center text-sm text-muted">
-            Envie de voir un classeur déjà rempli ?{" "}
+            {t.onboarding.samplePrompt}{" "}
             <button type="button" className="text-terracotta underline" onClick={sample}>
-              Charger l’exemple
+              {t.onboarding.loadSample}
             </button>
-            <span className="block text-xs mt-1">Sans effet si tu as déjà terminé l’accueil.</span>
+            <span className="block text-xs mt-1">{t.onboarding.sampleNote}</span>
           </p>
         ) : null}
       </div>
@@ -203,15 +212,25 @@ function Step({ title, body, children }: { title: string; body: string; children
   );
 }
 
-function WalletFields({ wallet, onChange }: { wallet: Wallet; onChange: (w: Wallet) => void }) {
+function WalletFields({
+  wallet,
+  onChange,
+  netLabel,
+  labels,
+}: {
+  wallet: Wallet;
+  onChange: (w: Wallet) => void;
+  netLabel: (n: string) => string;
+  labels: { label: string; asset: string; network: string; address: string; addressHint: string };
+}) {
   const nets = NETWORKS[wallet.asset] ?? ["Autre"];
   return (
     <div className="rounded-xl border border-line p-3 space-y-2">
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Libellé" optional>
+        <Field label={labels.label} optional>
           <Input value={wallet.label} onChange={(e) => onChange({ ...wallet, label: e.target.value })} />
         </Field>
-        <Field label="Actif">
+        <Field label={labels.asset}>
           <Select value={wallet.asset} onChange={(e) => onChange({ ...wallet, asset: e.target.value })}>
             {CRYPTO_ASSETS.map((a) => (
               <option key={a}>{a}</option>
@@ -219,14 +238,16 @@ function WalletFields({ wallet, onChange }: { wallet: Wallet; onChange: (w: Wall
           </Select>
         </Field>
       </div>
-      <Field label="Réseau" optional>
+      <Field label={labels.network} optional>
         <Select value={wallet.network} onChange={(e) => onChange({ ...wallet, network: e.target.value })}>
           {nets.map((n) => (
-            <option key={n}>{n}</option>
+            <option key={n} value={n}>
+              {netLabel(n)}
+            </option>
           ))}
         </Select>
       </Field>
-      <Field label="Adresse du portefeuille" optional hint="Tu peux la remplir plus tard, avant d’émettre.">
+      <Field label={labels.address} optional hint={labels.addressHint}>
         <Input
           value={wallet.address}
           onChange={(e) => onChange({ ...wallet, address: e.target.value })}
@@ -239,6 +260,7 @@ function WalletFields({ wallet, onChange }: { wallet: Wallet; onChange: (w: Wall
 
 function pick(s: Settings): Partial<Settings> {
   return {
+    locale: s.locale,
     nombre: s.nombre,
     nif: s.nif,
     direccion: s.direccion,

@@ -2,6 +2,8 @@
 
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
 import type { InvoiceStatus } from "@/lib/types";
+import type { Locale } from "@/lib/i18n";
+import { useT } from "@/lib/store";
 
 export function Button({
   variant = "primary",
@@ -37,6 +39,7 @@ export function Field({
   optional?: boolean;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <label className="block">
       <span className="flex items-baseline justify-between gap-2">
@@ -44,7 +47,7 @@ export function Field({
           {label}
           {required ? <span className="text-terracotta"> *</span> : null}
         </span>
-        {optional ? <span className="text-[11px] uppercase tracking-wide text-muted">optionnel</span> : null}
+        {optional ? <span className="text-[11px] uppercase tracking-wide text-muted">{t.optional}</span> : null}
       </span>
       <div className="mt-1.5">{children}</div>
       {hint ? <p className="mt-1 text-xs leading-relaxed text-muted">{hint}</p> : null}
@@ -68,11 +71,12 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 export function StatusBadge({ status }: { status: InvoiceStatus | "en_retard" }) {
+  const t = useT();
   const map: Record<string, { label: string; cls: string }> = {
-    brouillon: { label: "Brouillon", cls: "bg-paper-2 text-ink-soft" },
-    emise: { label: "Émise", cls: "bg-olive-mist text-olive" },
-    cobrada: { label: "Cobrada", cls: "bg-[#e7f0d8] text-[#3d5a2c]" },
-    en_retard: { label: "En retard", cls: "bg-[#f4d9d4] text-danger" },
+    brouillon: { label: t.status.brouillon, cls: "bg-paper-2 text-ink-soft" },
+    emise: { label: t.status.emise, cls: "bg-olive-mist text-olive" },
+    cobrada: { label: t.status.cobrada, cls: "bg-[#e7f0d8] text-[#3d5a2c]" },
+    en_retard: { label: t.status.en_retard, cls: "bg-[#f4d9d4] text-danger" },
   };
   const s = map[status] ?? map.brouillon;
   return (
@@ -105,10 +109,10 @@ export function PageTitle({
 }
 
 export function Disclaimer({ className = "" }: { className?: string }) {
+  const t = useT();
   return (
     <p className={`text-xs leading-relaxed text-muted ${className}`}>
-      Outil de suivi local — pas un dépôt AEAT / Verifactu. Les montants « à déclarer » sont
-      indicatifs, ce n’est pas un conseil fiscal.
+      {t.disclaimer}
     </p>
   );
 }
@@ -127,6 +131,32 @@ export function Empty({
       <p className="font-display text-xl">{title}</p>
       <p className="mt-2 text-sm text-muted max-w-md mx-auto">{body}</p>
       {action ? <div className="mt-5">{action}</div> : null}
+    </div>
+  );
+}
+
+export function LanguageToggle({
+  locale,
+  onChange,
+}: {
+  locale: Locale;
+  onChange: (l: Locale) => void;
+}) {
+  const btn = (code: Locale, label: string) => (
+    <button
+      type="button"
+      onClick={() => onChange(code)}
+      className={`px-2.5 py-1 text-xs font-medium tracking-wide ${
+        locale === code ? "bg-olive text-[#f6f3ec]" : "text-ink-soft hover:bg-paper-2"
+      }`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div className="inline-flex overflow-hidden rounded-lg border border-line" role="group" aria-label="FR / ES">
+      {btn("fr", "FR")}
+      {btn("es", "ES")}
     </div>
   );
 }

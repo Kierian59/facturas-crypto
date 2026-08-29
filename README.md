@@ -1,41 +1,32 @@
 # Facturas Crypto
 
-Outil **local** de facturation pour un autónomo en Espagne qui crée des publications sociales pour des **marques hors UE**, et qui encaisse en **crypto** (USDT, BTC, ETH…).
+Outil **local** de facturation / herramienta **local** de facturación para un autónomo en Espagne qui crée des publications sociales pour des **marques hors UE**, et qui encaisse en **crypto** (USDT, BTC, ETH…).
 
-La devise légale des facturas est l’**EUR**. La crypto est le moyen de paiement : tu enregistres le montant reçu, l’équivalent EUR au taux du jour (saisi à la main) et, si tu veux, le hash de transaction.
+Interface **FR / ES** (toggle dans la barre latérale, l’accueil et les paramètres). Défaut : **espagnol**. La factura PDF est **toujours en espagnol** (document légal).
+
+La devise légale des facturas est l’**EUR**. La crypto est le moyen de paiement.
 
 ## Ce que c’est
 
-- Carnet de **clients** (marques hors Europe) et de **facturas** numérotées.
-- PDF / impression A4 avec mentions légales (NIF, operación no sujeta a IVA, etc.).
-- Tableau de bord trimestriel indicatif : **modelo 303** et **modelo 130**, encaissé vs facturé.
+- Carnet de **clients** (marques hors Europe, avec **domicilio**) et de **facturas** numérotées.
+- PDF / impression A4 avec mentions légales (NIF, España, operación no sujeta a IVA, etc.).
+- **QR tributario** No-Verifactu : cotejo sur le site de l’AEAT (pas d’envoi du registro).
+- Tableau de bord trimestriel indicatif : **modelo 303** et **modelo 130**.
 - Données uniquement dans **ton navigateur** (localStorage). Pas de compte, pas de serveur.
 
 ## Ce que ce n’est pas
 
-Ceci n’est **pas** un dépôt AEAT / Verifactu, ni un conseil fiscal. Les montants « à déclarer » sont un **aide-mémoire**. Parle à ta gestoría.
+Ceci n’est **pas** un dépôt AEAT / Verifactu, ni un SIF homologué, ni un conseil fiscal. Les autonomos doivent disposer d’un SIF conforme à partir du **1er juillet 2027** (RDL 15/2025). Cette v1 permet de cotejar les données sur la sede AEAT ; elle ne remet pas le registro de facturación.
 
 ## Lancer en local
 
-Dans ce dossier :
-
-```
-npm install
-npm run dev
-```
-
-Ouvre ensuite http://localhost:3000
-
-Scripts :
-
-- `npm run dev` — développement
-- `npm run build` — build de production
-- `npm start` — servir le build
+Voir les scripts dans package.json (dev / build / start). Ouvre ensuite http://localhost:3000
 
 ## Données
 
-Export / import JSON depuis **Paramètres**. Vide le stockage du site pour tout effacer.
+Export / import JSON depuis **Paramètres / Ajustes**.
 
 ## Mentions IVA (v1)
 
-Pour un service B2B à un entrepreneur établi **hors UE**, la factura indique une **operación no sujeta a IVA** (art. 69.Uno.1º Ley 37/1992). La retención IRPF est à 0 par défaut (le client étranger ne retient pas).
+Pour un service B2B hors UE, la factura indique une **operación no sujeta a IVA** (art. 69.Uno.1º Ley 37/1992).
+

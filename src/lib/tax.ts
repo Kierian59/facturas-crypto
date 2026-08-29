@@ -1,11 +1,9 @@
 import type { Invoice } from "./types";
 import { invoiceBase, invoiceTotal } from "./format";
+import { dict, type Locale } from "./i18n";
 
 export const IVA_NOSUJETA =
   "Operación no sujeta a IVA conforme al artículo 69.Uno.1º de la Ley 37/1992 del IVA.";
-
-export const IVA_NOSUJETA_HELP =
-  "Prestation B2B localisée chez le client établi hors UE : pas d'IVA espagnol. Ce n'est pas une exención.";
 
 export type Quarter = {
   year: number;
@@ -21,21 +19,21 @@ function pad(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-export function quarterOf(iso: string): Quarter {
+export function quarterOf(iso: string, locale: Locale = "es"): Quarter {
   const d = new Date(iso + "T12:00:00");
   const year = d.getFullYear();
   const month = d.getMonth() + 1;
   const q = (Math.floor((month - 1) / 3) + 1) as 1 | 2 | 3 | 4;
-  return quarterByIndex(year, q);
+  return quarterByIndex(year, q, locale);
 }
 
-export function quarterByIndex(year: number, q: 1 | 2 | 3 | 4): Quarter {
+export function quarterByIndex(year: number, q: 1 | 2 | 3 | 4, locale: Locale = "es"): Quarter {
   const starts = ["01-01", "04-01", "07-01", "10-01"] as const;
   const ends = ["03-31", "06-30", "09-30", "12-31"] as const;
   const windowMonth = q === 1 ? 4 : q === 2 ? 7 : q === 3 ? 10 : 1;
   const windowYear = q === 4 ? year + 1 : year;
   const windowEndDay = q === 4 ? 20 : 20;
-  const labels = ["1er trimestre", "2e trimestre", "3e trimestre", "4e trimestre"];
+  const labels = dict(locale).quarters;
   return {
     year,
     q,
@@ -47,31 +45,31 @@ export function quarterByIndex(year: number, q: 1 | 2 | 3 | 4): Quarter {
   };
 }
 
-export function previousQuarter(q: Quarter): Quarter {
-  if (q.q === 1) return quarterByIndex(q.year - 1, 4);
-  return quarterByIndex(q.year, (q.q - 1) as 1 | 2 | 3 | 4);
+export function previousQuarter(q: Quarter, locale: Locale = "es"): Quarter {
+  if (q.q === 1) return quarterByIndex(q.year - 1, 4, locale);
+  return quarterByIndex(q.year, (q.q - 1) as 1 | 2 | 3 | 4, locale);
 }
 
-export function nextQuarter(q: Quarter): Quarter {
-  if (q.q === 4) return quarterByIndex(q.year + 1, 1);
-  return quarterByIndex(q.year, (q.q + 1) as 1 | 2 | 3 | 4);
+export function nextQuarter(q: Quarter, locale: Locale = "es"): Quarter {
+  if (q.q === 4) return quarterByIndex(q.year + 1, 1, locale);
+  return quarterByIndex(q.year, (q.q + 1) as 1 | 2 | 3 | 4, locale);
 }
 
 function inRange(iso: string, start: string, end: string): boolean {
   return iso >= start && iso <= end;
 }
 
-export function filingTarget(todayIso: string): {
+export function filingTarget(
+  todayIso: string,
+  locale: Locale = "es",
+): {
   current: Quarter;
   toFile: Quarter;
   inWindow: boolean;
   nextWindow: Quarter;
 } {
-  const current = quarterOf(todayIso);
-  const prev = previousQuarter(current);
-  const inWindow = inRange(todayIso, current.windowStart, current.windowEnd)
-    ? false
-    : inRange(todayIso, prev.windowStart, prev.windowEnd);
+  const current = quarterOf(todayIso, locale);
+  const prev = previousQuarter(current, locale);
   if (inRange(todayIso, prev.windowStart, prev.windowEnd)) {
     return {
       current,
@@ -131,21 +129,25 @@ export function emitBlockers(opts: {
   direccion: string;
   clientBrand: string;
   clientCountry: string;
+  clientAddress: string;
   items: { description: string; quantity: number; unitPriceEur: number }[];
   issueDate: string;
+  locale?: Locale;
 }): EmitBlocker[] {
+  const t = dict(opts.locale ?? "es");
   const b: EmitBlocker[] = [];
-  if (!opts.nombre.trim()) b.push({ field: "nombre", message: "Ton nom (émetteur) est requis." });
-  if (!opts.nif.trim()) b.push({ field: "nif", message: "Le NIF/NIE de l'émetteur est requis." });
-  if (!opts.direccion.trim()) b.push({ field: "direccion", message: "L'adresse de l'émetteur est requise." });
-  if (!opts.clientBrand.trim()) b.push({ field: "client", message: "La marca cliente est requise." });
-  if (!opts.clientCountry.trim()) b.push({ field: "country", message: "Le pays du client est requis." });
-  if (!opts.issueDate) b.push({ field: "issueDate", message: "La date d'émission est requise." });
+  if (!opts.nombre.trim()) b.push({ field: "nombre", message: t.blockers.nombre });
+  if (!opts.nif.trim()) b.push({ field: "nif", message: t.blockers.nif });
+  if (!opts.direccion.trim()) b.push({ field: "direccion", message: t.blockers.direccion });
+  if (!opts.clientBrand.trim()) b.push({ field: "client", message: t.blockers.client });
+  if (!opts.clientCountry.trim()) b.push({ field: "country", message: t.blockers.country });
+  if (!opts.clientAddress.trim()) b.push({ field: "address", message: t.blockers.address });
+  if (!opts.issueDate) b.push({ field: "issueDate", message: t.blockers.issueDate });
   const validItems = opts.items.filter(
     (i) => i.description.trim() && i.quantity > 0 && i.unitPriceEur >= 0,
   );
   if (validItems.length === 0) {
-    b.push({ field: "items", message: "Ajoute au moins une ligne (description + montant EUR)." });
+    b.push({ field: "items", message: t.blockers.items });
   }
   return b;
 }

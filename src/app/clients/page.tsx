@@ -1,31 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useStore } from "@/lib/store";
+import { useStore, useT } from "@/lib/store";
 import { Button, Empty, PageTitle } from "@/components/ui";
 
 export default function ClientsPage() {
-  const { clients } = useStore();
-  const sorted = [...clients].sort((a, b) => a.brand.localeCompare(b.brand, "fr"));
+  const { clients, settings } = useStore();
+  const t = useT();
+  const sorted = [...clients].sort((a, b) => a.brand.localeCompare(b.brand, settings.locale));
 
   return (
     <div>
       <PageTitle
-        kicker="Carnet"
-        title="Clients"
+        kicker={t.clients.kicker}
+        title={t.clients.title}
         action={
           <Link href="/clients/nouveau">
-            <Button>Nouvelle marca</Button>
+            <Button>{t.clients.newBrand}</Button>
           </Link>
         }
       />
       {sorted.length === 0 ? (
         <Empty
-          title="Aucune marca pour l’instant"
-          body="Ajoute tes clients hors UE. Le drapeau hors-UE pilote le traitement IVA (operación no sujeta)."
+          title={t.clients.emptyTitle}
+          body={t.clients.emptyBody}
           action={
             <Link href="/clients/nouveau">
-              <Button>Ajouter un client</Button>
+              <Button>{t.clients.addClient}</Button>
             </Link>
           }
         />
@@ -41,11 +42,11 @@ export default function ClientsPage() {
                   <span className="block font-medium">{c.brand}</span>
                   <span className="text-sm text-muted">
                     {c.country}
-                    {c.horsUE ? " · hors UE" : " · UE"}
+                    {c.horsUE ? ` · ${t.horsUE}` : ` · ${t.inUE}`}
                     {c.taxId ? ` · ${c.taxId}` : ""}
                   </span>
                 </span>
-                <span className="text-muted text-sm">ouvrir</span>
+                <span className="text-muted text-sm">{t.open}</span>
               </Link>
             </li>
           ))}

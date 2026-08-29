@@ -1,3 +1,5 @@
+import { DEFAULT_ACTIVITY, type Locale } from "./i18n";
+
 export type InvoiceStatus = "brouillon" | "emise" | "cobrada";
 
 export type Wallet = {
@@ -10,6 +12,7 @@ export type Wallet = {
 
 export type Settings = {
   onboarded: boolean;
+  locale: Locale;
   nombre: string;
   nif: string;
   direccion: string;
@@ -28,6 +31,7 @@ export type Client = {
   brand: string;
   country: string;
   countryCode: string;
+  address: string;
   taxId: string;
   email: string;
   notes: string;
@@ -67,12 +71,13 @@ export type Invoice = {
   notes: string;
   irpfRate: number;
   payment: CryptoPayment | null;
+  huella: string;
   createdAt: string;
   updatedAt: string;
 };
 
 export type Database = {
-  version: 1;
+  version: 2;
   settings: Settings;
   clients: Client[];
   invoices: Invoice[];
@@ -100,13 +105,14 @@ export function emptySettings(): Settings {
   const year = new Date().getFullYear();
   return {
     onboarded: false,
+    locale: "es",
     nombre: "",
     nif: "",
     direccion: "",
     ciudad: "",
     cp: "",
     email: "",
-    activity: "Création de contenus et publications sociales pour des marques.",
+    activity: DEFAULT_ACTIVITY.es,
     defaultAsset: "USDT",
     wallets: [
       {
@@ -124,7 +130,7 @@ export function emptySettings(): Settings {
 
 export function emptyDatabase(): Database {
   return {
-    version: 1,
+    version: 2,
     settings: emptySettings(),
     clients: [],
     invoices: [],

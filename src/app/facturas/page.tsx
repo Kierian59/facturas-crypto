@@ -2,24 +2,26 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, useT } from "@/lib/store";
 import { Button, Empty, PageTitle, StatusBadge } from "@/components/ui";
 import { formatDate, formatEur, invoiceBase, invoiceTotal, isoDate } from "@/lib/format";
 import { displayStatus } from "@/lib/tax";
 import type { InvoiceStatus } from "@/lib/types";
 
-const FILTERS: { id: "all" | InvoiceStatus | "en_retard"; label: string }[] = [
-  { id: "all", label: "Toutes" },
-  { id: "brouillon", label: "Brouillons" },
-  { id: "emise", label: "Émises" },
-  { id: "en_retard", label: "En retard" },
-  { id: "cobrada", label: "Cobradas" },
-];
-
 export default function FacturasPage() {
-  const { invoices, clients } = useStore();
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
+  const { invoices, clients, settings } = useStore();
+  const t = useT();
+  const [filter, setFilter] = useState<"all" | InvoiceStatus | "en_retard">("all");
   const today = isoDate();
+  const locale = settings.locale;
+
+  const FILTERS: { id: "all" | InvoiceStatus | "en_retard"; label: string }[] = [
+    { id: "all", label: t.filters.all },
+    { id: "brouillon", label: t.filters.brouillon },
+    { id: "emise", label: t.filters.emise },
+    { id: "en_retard", label: t.filters.en_retard },
+    { id: "cobrada", label: t.filters.cobrada },
+  ];
 
   const rows = useMemo(() => {
     const name = (id: string) => clients.find((c) => c.id === id)?.brand ?? "—";
@@ -37,11 +39,11 @@ export default function FacturasPage() {
   return (
     <div>
       <PageTitle
-        kicker="Série"
-        title="Facturas"
+        kicker={t.facturas.kicker}
+        title={t.facturas.title}
         action={
           <Link href="/facturas/nouvelle">
-            <Button>Nouvelle factura</Button>
+            <Button>{t.facturas.newInvoice}</Button>
           </Link>
         }
       />
@@ -61,11 +63,11 @@ export default function FacturasPage() {
       </div>
       {rows.length === 0 ? (
         <Empty
-          title="Aucune factura ici"
-          body="Rédige un brouillon, puis émets-le : le numéro séquentiel se fige à ce moment-là."
+          title={t.facturas.emptyTitle}
+          body={t.facturas.emptyBody}
           action={
             <Link href="/facturas/nouvelle">
-              <Button>Créer</Button>
+              <Button>{t.facturas.create}</Button>
             </Link>
           }
         />
@@ -78,13 +80,13 @@ export default function FacturasPage() {
                 className="paper-card rounded-2xl px-4 py-3 flex items-center justify-between gap-3"
               >
                 <span>
-                  <span className="block font-medium tabular">{inv.number ?? "Brouillon"}</span>
+                  <span className="block font-medium tabular">{inv.number ?? t.facturas.draft}</span>
                   <span className="text-sm text-muted">
                     {brand} · {formatDate(inv.issueDate)}
                   </span>
                 </span>
                 <span className="text-right">
-                  <span className="block tabular text-sm">{formatEur(total)}</span>
+                  <span className="block tabular text-sm">{formatEur(total, locale)}</span>
                   <StatusBadge status={status} />
                 </span>
               </Link>

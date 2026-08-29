@@ -18,7 +18,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Facturas Crypto",
   description:
-    "Facturation locale EUR + crypto pour autónomo : marques hors UE, modelo 303 / 130.",
+    "Facturación local EUR + crypto para autónomo: marcas fuera de la UE, modelo 303 / 130.",
 };
 
 export const viewport: Viewport = {
@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${outfit.variable} ${fraunces.variable}`}>
+    <html lang="es" className={`${outfit.variable} ${fraunces.variable}`}>
       <body className="antialiased">
         <Providers>{children}</Providers>
       </body>

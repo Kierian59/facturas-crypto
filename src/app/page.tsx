@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, useT } from "@/lib/store";
 import { Button, Disclaimer, PageTitle, StatusBadge } from "@/components/ui";
 import { formatDate, formatEur, isoDate } from "@/lib/format";
 import {
@@ -17,9 +17,11 @@ import {
 
 export default function DashboardPage() {
   const { invoices, clients, settings, loadSample, sampleAvailable } = useStore();
+  const t = useT();
+  const locale = settings.locale;
   const today = isoDate();
   const stats = useMemo(() => {
-    const f = filingTarget(today);
+    const f = filingTarget(today, locale);
     const cobradoQ = invoices
       .filter((i) => inQuarterByCobro(i, f.current))
       .reduce((s, i) => s + cobradoEur(i), 0);
@@ -41,34 +43,34 @@ export default function DashboardPage() {
       mix.set(k, (mix.get(k) ?? 0) + i.payment!.eurEquivalent);
     });
     return { f, cobradoQ, factureQ, aDeclarer, unpaid, overdue, upcoming, mix };
-  }, [invoices, today]);
+  }, [invoices, today, locale]);
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.brand ?? "—";
 
   return (
     <div>
       <PageTitle
-        kicker={settings.nombre || "Tableau"}
-        title="Ce trimestre"
+        kicker={settings.nombre || t.dash.kickerFallback}
+        title={t.dash.title}
         action={
           <Link href="/facturas/nouvelle">
-            <Button>Nouvelle factura</Button>
+            <Button>{t.dash.newInvoice}</Button>
           </Link>
         }
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cobrado (encaissé)" value={formatEur(stats.cobradoQ)} hint={stats.f.current.label} />
-        <Stat label="Non payé" value={formatEur(stats.unpaid)} hint="Facturas émises en attente" />
+        <Stat label={t.dash.cobrado} value={formatEur(stats.cobradoQ, locale)} hint={stats.f.current.label} />
+        <Stat label={t.dash.unpaid} value={formatEur(stats.unpaid, locale)} hint={t.dash.unpaidHint} />
         <Stat
-          label="À déclarer"
-          value={formatEur(stats.aDeclarer)}
-          hint={`Encaissé ${stats.f.toFile.label} · fecha de cobro`}
+          label={t.dash.toDeclare}
+          value={formatEur(stats.aDeclarer, locale)}
+          hint={t.dash.toDeclareHint(stats.f.toFile.label)}
         />
         <Stat
-          label="Facturé vs cobrado"
-          value={`${formatEur(stats.factureQ)} / ${formatEur(stats.cobradoQ)}`}
-          hint="Émis ce trimestre / encaissé ce trimestre"
+          label={t.dash.billedVs}
+          value={`${formatEur(stats.factureQ, locale)} / ${formatEur(stats.cobradoQ, locale)}`}
+          hint={t.dash.billedHint}
         />
       </div>
 
@@ -77,28 +79,29 @@ export default function DashboardPage() {
           modelo 303 · modelo 130
         </p>
         <h2 className="font-display text-xl mt-1">
-          {stats.f.inWindow ? "Fenêtre ouverte" : "Prochaine fenêtre"}
+          {stats.f.inWindow ? t.dash.windowOpen : t.dash.nextWindow}
         </h2>
         <p className="mt-2 text-sm text-ink-soft">
-          {stats.f.nextWindow.label} : à déposer environ du{" "}
-          <span className="tabular">{formatDate(stats.f.nextWindow.windowStart)}</span> au{" "}
-          <span className="tabular">{formatDate(stats.f.nextWindow.windowEnd)}</span>.
+          {t.dash.windowBody(
+            stats.f.nextWindow.label,
+            formatDate(stats.f.nextWindow.windowStart),
+            formatDate(stats.f.nextWindow.windowEnd),
+          )}
         </p>
         <p className="mt-1 text-sm">
-          Montant indicatif à déclarer (cobrado EUR) :{" "}
-          <strong className="tabular">{formatEur(stats.aDeclarer)}</strong>
+          {t.dash.indicative}{" "}
+          <strong className="tabular">{formatEur(stats.aDeclarer, locale)}</strong>
         </p>
         <p className="mt-2 text-xs text-muted">
-          Fenêtres usuelles ~1–20 avril / juillet / octobre / janvier. Le 4e trimestre va souvent
-          jusqu’au 30 janvier. Aide-mémoire seulement.
+          {t.dash.windowNote}
         </p>
       </section>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
         <section className="paper-card rounded-2xl p-5">
-          <h2 className="font-display text-lg">À relancer</h2>
+          <h2 className="font-display text-lg">{t.dash.followUp}</h2>
           {stats.overdue.length === 0 && stats.upcoming.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">Rien en souffrance. Tranquille.</p>
+            <p className="mt-2 text-sm text-muted">{t.dash.nothingDue}</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {stats.overdue.map((i) => (
@@ -117,7 +120,7 @@ export default function DashboardPage() {
                     <span>
                       {i.number} · {clientName(i.clientId)}
                     </span>
-                    <span className="text-muted tabular">éch. {formatDate(i.dueDate)}</span>
+                    <span className="text-muted tabular">{t.dash.dueAbbr} {formatDate(i.dueDate)}</span>
                   </Link>
                 </li>
               ))}
@@ -126,15 +129,15 @@ export default function DashboardPage() {
         </section>
 
         <section className="paper-card rounded-2xl p-5">
-          <h2 className="font-display text-lg">Mix crypto (encaissé)</h2>
+          <h2 className="font-display text-lg">{t.dash.cryptoMix}</h2>
           {stats.mix.size === 0 ? (
-            <p className="mt-2 text-sm text-muted">Pas encore de cobro ce trimestre.</p>
+            <p className="mt-2 text-sm text-muted">{t.dash.noCobro}</p>
           ) : (
             <ul className="mt-3 space-y-2">
               {[...stats.mix.entries()].map(([asset, eur]) => (
                 <li key={asset} className="flex justify-between text-sm">
                   <span>{asset}</span>
-                  <span className="tabular">{formatEur(eur)}</span>
+                  <span className="tabular">{formatEur(eur, locale)}</span>
                 </li>
               ))}
             </ul>
@@ -145,8 +148,8 @@ export default function DashboardPage() {
       {sampleAvailable ? (
         <div className="mt-6 paper-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="font-medium">Données d’exemple</p>
-            <p className="text-sm text-muted">Un classeur fictif, seulement si tu n’as pas encore d’activité.</p>
+            <p className="font-medium">{t.dash.sampleTitle}</p>
+            <p className="text-sm text-muted">{t.dash.sampleBody}</p>
           </div>
           <Button
             variant="ghost"
@@ -154,7 +157,7 @@ export default function DashboardPage() {
               loadSample();
             }}
           >
-            Charger l’exemple
+            {t.dash.loadSample}
           </Button>
         </div>
       ) : null}
