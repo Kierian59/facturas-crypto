@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-outfit), "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --color-paper: #f3eee4;
+  --color-paper-2: #ebe4d6;
+  --color-ink: #1a1712;
+  --color-ink-soft: #4a4338;
+  --color-muted: #7a7164;
+  --color-line: #d9cbb6;
+  --color-card: #fffdf8;
+  --color-terracotta: #9c4a2b;
+  --color-terracotta-deep: #7a341c;
+  --color-olive: #2f4a3c;
+  --color-olive-mist: #dce8df;
+  --color-sand: #c9a36a;
+  --color-danger: #8f2d2a;
+  --color-warn: #9a5b12;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 500px at 10% -10%, rgba(156, 74, 43, 0.08), transparent 50%),
+    radial-gradient(900px 400px at 100% 0%, rgba(47, 74, 60, 0.08), transparent 45%),
+    var(--color-paper);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: #e7c9b6;
+  color: var(--color-ink);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+.paper-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-line);
+  box-shadow: 0 1px 0 rgba(26, 23, 18, 0.03), 0 10px 30px -18px rgba(26, 23, 18, 0.35);
+}
+
+.stamp {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--color-terracotta);
+  color: #fbf6ee;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 248, 0.25);
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
+  outline: 2px solid var(--color-olive);
+  outline-offset: 2px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 12mm;
+}
