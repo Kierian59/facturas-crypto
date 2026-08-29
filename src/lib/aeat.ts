@@ -5,6 +5,16 @@ import { invoiceBase, invoiceTotal } from "./format";
 export const AEAT_NO_VERIFACTU_BASE =
   "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQRNoVerifactu";
 
+/** Official AEAT sede links (login with Cl@ve / certificado). */
+export const AEAT_LINKS = {
+  facturacionApp:
+    "https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu.html",
+  modelo303: "https://sede.agenciatributaria.gob.es/Sede/iva/pre-303.html",
+  modelo130: "https://sede.agenciatributaria.gob.es/Sede/procedimientoini/G601.shtml",
+  calendario:
+    "https://sede.agenciatributaria.gob.es/Sede/ayuda/calendario-contribuyente/calendario-contribuyente-2026.html",
+} as const;
+
 export function normalizeNif(nif: string): string {
   return nif.replace(/\s+/g, "").toUpperCase();
 }

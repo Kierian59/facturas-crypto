@@ -17,7 +17,7 @@ import {
 import { displayStatus, emitBlockers } from "@/lib/tax";
 import type { CryptoPayment, LineItem } from "@/lib/types";
 import { CRYPTO_ASSETS, NETWORKS } from "@/lib/types";
-import { aeatCotejoUrl, invoiceTotalEur } from "@/lib/aeat";
+import { AEAT_LINKS, aeatCotejoUrl, invoiceTotalEur } from "@/lib/aeat";
 import type { Dict } from "@/lib/i18n";
 
 export default function FacturaDetailPage() {
@@ -131,10 +131,14 @@ export default function FacturaDetailPage() {
             <a href={cotejo} target="_blank" rel="noreferrer">
               <Button type="button">{t.aeat.verify}</Button>
             </a>
+            <a href={AEAT_LINKS.facturacionApp} target="_blank" rel="noreferrer">
+              <Button type="button" variant="secondary">{t.aeat.register}</Button>
+            </a>
             <Button variant="ghost" type="button" onClick={() => void copyLink(cotejo)}>
               {t.aeat.copyLink}
             </Button>
           </div>
+          <p className="text-xs leading-relaxed text-muted">{t.aeat.registerHint}</p>
           <p className="text-xs leading-relaxed text-muted">{t.aeat.disclaimer}</p>
           {inv.huella ? (
             <p className="text-[11px] break-all text-muted">

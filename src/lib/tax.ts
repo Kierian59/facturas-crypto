@@ -32,7 +32,7 @@ export function quarterByIndex(year: number, q: 1 | 2 | 3 | 4, locale: Locale = 
   const ends = ["03-31", "06-30", "09-30", "12-31"] as const;
   const windowMonth = q === 1 ? 4 : q === 2 ? 7 : q === 3 ? 10 : 1;
   const windowYear = q === 4 ? year + 1 : year;
-  const windowEndDay = q === 4 ? 20 : 20;
+  const windowEndDay = q === 4 ? 30 : 20;
   const labels = dict(locale).quarters;
   return {
     year,
@@ -150,4 +150,61 @@ export function emitBlockers(opts: {
     b.push({ field: "items", message: t.blockers.items });
   }
   return b;
+}
+
+export type FiscalDeadline = {
+  id: string;
+  kind: "quarter" | "renta" | "verifactu";
+  periodLabel: string;
+  windowStart: string;
+  windowEnd: string;
+};
+
+export function fiscalDeadlines(todayIso: string, locale: Locale): FiscalDeadline[] {
+  const year = Number(todayIso.slice(0, 4));
+  const items: FiscalDeadline[] = [];
+  for (const y of [year - 1, year, year + 1]) {
+    for (const q of [1, 2, 3, 4] as const) {
+      const qq = quarterByIndex(y, q, locale);
+      items.push({
+        id: `${y}-T${q}`,
+        kind: "quarter",
+        periodLabel: qq.label,
+        windowStart: qq.windowStart,
+        windowEnd: qq.windowEnd,
+      });
+    }
+    items.push({
+      id: `${y}-renta`,
+      kind: "renta",
+      periodLabel: String(y),
+      windowStart: `${y + 1}-04-02`,
+      windowEnd: `${y + 1}-06-30`,
+    });
+  }
+  items.push({
+    id: "verifactu-2027",
+    kind: "verifactu",
+    periodLabel: "2027",
+    windowStart: "2027-07-01",
+    windowEnd: "2027-07-01",
+  });
+  const seen = new Set<string>();
+  const unique = items.filter((d) => {
+    if (seen.has(d.id)) return false;
+    seen.add(d.id);
+    return true;
+  });
+  unique.sort((a, b) => a.windowEnd.localeCompare(b.windowEnd) || a.id.localeCompare(b.id));
+  const cutoff = todayIso < "2000-01-01" ? todayIso : addDaysIso(todayIso, -45);
+  return unique.filter((d) => d.windowEnd >= cutoff).slice(0, 8);
+}
+
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

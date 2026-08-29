@@ -99,6 +99,19 @@ const es = {
     sampleTitle: "Datos de ejemplo",
     sampleBody: "Un archivo ficticio, solo si todavía no tienes actividad.",
     loadSample: "Cargar el ejemplo",
+    calendarTitle: "Calendario fiscal",
+    calendarOfficial: "Calendario AEAT 2026",
+    postInvoices: "Registrar facturas en la AEAT",
+    postInvoicesHint: "App gratuita de Hacienda (Cl@ve o certificado). Lo haces a mano.",
+    present303: "Presentar modelo 303",
+    present130: "Presentar modelo 130",
+    deadlineOpen: "Abierto",
+    deadlineSoon: "Próximo",
+    deadlinePast: "Pasado",
+    models303130: "mod. 303 + 130",
+    renta: "Renta (mod. 100)",
+    verifactuDate: "SIF / Verifactu",
+    until: "hasta",
   },
 
   onboarding: {
@@ -300,6 +313,8 @@ const es = {
     huella: "Huella interna",
     huellaHint: "SHA-256 local — no es la huella AEAT ni una cadena Verifactu.",
     draftQr: "Emite la factura para generar el QR de cotejo AEAT.",
+    register: "Registrar en la AEAT",
+    registerHint: "Abre la aplicación gratuita de facturación de Hacienda e identifícate con Cl@ve.",
   },
 };
 
@@ -392,6 +407,19 @@ const fr: Dict = {
     sampleTitle: "Données d’exemple",
     sampleBody: "Un classeur fictif, seulement si tu n’as pas encore d’activité.",
     loadSample: "Charger l’exemple",
+    calendarTitle: "Calendrier fiscal",
+    calendarOfficial: "Calendrier AEAT 2026",
+    postInvoices: "Déposer les facturas sur l’AEAT",
+    postInvoicesHint: "App gratuite de Hacienda (Cl@ve ou certificat). Tu le fais à la mano.",
+    present303: "Présenter modelo 303",
+    present130: "Présenter modelo 130",
+    deadlineOpen: "Ouvert",
+    deadlineSoon: "Prochain",
+    deadlinePast: "Passé",
+    models303130: "mod. 303 + 130",
+    renta: "Renta (mod. 100)",
+    verifactuDate: "SIF / Verifactu",
+    until: "jusqu’au",
   },
 
   onboarding: {
@@ -593,6 +621,8 @@ const fr: Dict = {
     huella: "Empreinte interne",
     huellaHint: "SHA-256 locale — ce n'est pas l'empreinte AEAT ni une chaîne Verifactu.",
     draftQr: "Émets la factura pour générer le QR de cotejo AEAT.",
+    register: "Déposer sur l’AEAT",
+    registerHint: "Ouvre l’app gratuite de facturation de Hacienda et identifie-toi avec Cl@ve.",
   },
 };
 

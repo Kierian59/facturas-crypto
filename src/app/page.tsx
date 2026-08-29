@@ -10,10 +10,12 @@ import {
   displayStatus,
   facturadoEur,
   filingTarget,
+  fiscalDeadlines,
   inQuarterByCobro,
   inQuarterByIssue,
   unpaidEur,
 } from "@/lib/tax";
+import { AEAT_LINKS } from "@/lib/aeat";
 
 export default function DashboardPage() {
   const { invoices, clients, settings, loadSample, sampleAvailable } = useStore();
@@ -42,7 +44,8 @@ export default function DashboardPage() {
       const k = i.payment!.asset;
       mix.set(k, (mix.get(k) ?? 0) + i.payment!.eurEquivalent);
     });
-    return { f, cobradoQ, factureQ, aDeclarer, unpaid, overdue, upcoming, mix };
+    const deadlines = fiscalDeadlines(today, locale);
+    return { f, cobradoQ, factureQ, aDeclarer, unpaid, overdue, upcoming, mix, deadlines };
   }, [invoices, today, locale]);
 
   const clientName = (id: string) => clients.find((c) => c.id === id)?.brand ?? "—";
@@ -95,6 +98,69 @@ export default function DashboardPage() {
         <p className="mt-2 text-xs text-muted">
           {t.dash.windowNote}
         </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <a href={AEAT_LINKS.facturacionApp} target="_blank" rel="noreferrer">
+            <Button type="button">{t.dash.postInvoices}</Button>
+          </a>
+          <a href={AEAT_LINKS.modelo303} target="_blank" rel="noreferrer">
+            <Button type="button" variant="secondary">{t.dash.present303}</Button>
+          </a>
+          <a href={AEAT_LINKS.modelo130} target="_blank" rel="noreferrer">
+            <Button type="button" variant="secondary">{t.dash.present130}</Button>
+          </a>
+        </div>
+        <p className="mt-2 text-xs text-muted">{t.dash.postInvoicesHint}</p>
+      </section>
+
+      <section className="mt-6 paper-card rounded-2xl p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-display text-xl">{t.dash.calendarTitle}</h2>
+          <a
+            href={AEAT_LINKS.calendario}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs uppercase tracking-wide text-terracotta"
+          >
+            {t.dash.calendarOfficial}
+          </a>
+        </div>
+        <ul className="mt-3 divide-y divide-line">
+          {stats.deadlines.map((d) => {
+            const open = today >= d.windowStart && today <= d.windowEnd;
+            const past = today > d.windowEnd;
+            const label =
+              d.kind === "quarter"
+                ? t.dash.models303130
+                : d.kind === "renta"
+                  ? t.dash.renta
+                  : t.dash.verifactuDate;
+            const when =
+              d.kind === "verifactu"
+                ? formatDate(d.windowStart)
+                : `${formatDate(d.windowStart)} → ${formatDate(d.windowEnd)}`;
+            const badge = open ? t.dash.deadlineOpen : past ? t.dash.deadlinePast : t.dash.deadlineSoon;
+            return (
+              <li key={d.id} className="py-2.5 flex items-start justify-between gap-3 text-sm">
+                <div>
+                  <p className="font-medium">
+                    {label}
+                    {d.kind !== "verifactu" ? ` · ${d.periodLabel}` : ""}
+                  </p>
+                  <p className="text-xs text-muted tabular">
+                    {t.dash.until} {when}
+                  </p>
+                </div>
+                <span
+                  className={`shrink-0 text-[11px] uppercase tracking-wide ${
+                    open ? "text-olive" : past ? "text-muted" : "text-terracotta"
+                  }`}
+                >
+                  {badge}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
