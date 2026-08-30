@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useStore, useT } from "@/lib/store";
 import { Button, Disclaimer, PageTitle, StatusBadge } from "@/components/ui";
 import { formatDate, formatEur, isoDate } from "@/lib/format";
 import {
   cobradoEur,
+  cobrosByDay,
+  cobrosByMonth,
+  cobroYears,
   displayStatus,
   facturadoEur,
   filingTarget,
@@ -16,6 +19,8 @@ import {
   unpaidEur,
 } from "@/lib/tax";
 import { AEAT_LINKS } from "@/lib/aeat";
+import type { Client, Invoice } from "@/lib/types";
+import type { Locale } from "@/lib/i18n";
 
 export default function DashboardPage() {
   const { invoices, clients, settings, loadSample, sampleAvailable } = useStore();
@@ -76,6 +81,8 @@ export default function DashboardPage() {
           hint={t.dash.billedHint}
         />
       </div>
+
+      <DeclaredSection invoices={invoices} clients={clients} locale={locale} today={today} />
 
       <section className="mt-6 paper-card rounded-2xl p-5">
         <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">
@@ -240,5 +247,207 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
       <p className="mt-1 font-display text-2xl tabular leading-tight">{value}</p>
       <p className="mt-1 text-xs text-muted">{hint}</p>
     </div>
+  );
+}
+
+function monthLabel(month: number, locale: Locale): string {
+  const tag = locale === "fr" ? "fr-FR" : "es-ES";
+  const raw = new Intl.DateTimeFormat(tag, { month: "long", timeZone: "UTC" }).format(
+    new Date(Date.UTC(2020, month - 1, 15)),
+  );
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+function DeclaredSection({
+  invoices,
+  clients,
+  locale,
+  today,
+}: {
+  invoices: Invoice[];
+  clients: Client[];
+  locale: Locale;
+  today: string;
+}) {
+  const t = useT();
+  const currentYear = Number(today.slice(0, 4));
+  const currentMonth = Number(today.slice(5, 7));
+  const [year, setYear] = useState(currentYear);
+  const [openMonth, setOpenMonth] = useState<number | null>(null);
+  const [openDay, setOpenDay] = useState<string | null>(null);
+
+  const years = useMemo(() => {
+    const ys = new Set(cobroYears(invoices));
+    ys.add(currentYear);
+    ys.add(currentYear - 1);
+    return [...ys].sort((a, b) => a - b);
+  }, [invoices, currentYear]);
+
+  const byMonth = useMemo(() => cobrosByMonth(invoices, year), [invoices, year]);
+  const byDay = useMemo(
+    () => (openMonth ? cobrosByDay(invoices, year, openMonth) : null),
+    [invoices, year, openMonth],
+  );
+
+  const clientName = (id: string) => clients.find((c) => c.id === id)?.brand ?? "—";
+  const maxMonth = Math.max(0, ...byMonth.months.map((m) => m.total));
+  const minYear = years[0] ?? currentYear;
+  const isCurrentYear = year === currentYear;
+
+  function setYearAndReset(next: number) {
+    setYear(next);
+    setOpenMonth(null);
+    setOpenDay(null);
+  }
+
+  function toggleMonth(month: number) {
+    setOpenMonth((prev) => (prev === month ? null : month));
+    setOpenDay(null);
+  }
+
+  return (
+    <section className="mt-6 paper-card rounded-2xl p-5">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">{t.dash.byMonth}</p>
+      <div className="mt-1 flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="font-display text-xl">{t.dash.declaredTitle}</h2>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label={`${year - 1}`}
+            disabled={year <= minYear}
+            onClick={() => setYearAndReset(year - 1)}
+            className="rounded-lg px-2 py-1 text-sm text-ink-soft hover:bg-paper-2 disabled:opacity-35"
+          >
+            ‹
+          </button>
+          <select
+            value={year}
+            onChange={(e) => setYearAndReset(Number(e.target.value))}
+            className="rounded-xl border border-line bg-card px-2 py-1.5 font-display text-lg tabular"
+          >
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+            {years.includes(year) ? null : <option value={year}>{year}</option>}
+          </select>
+          <button
+            type="button"
+            aria-label={`${year + 1}`}
+            disabled={year >= currentYear}
+            onClick={() => setYearAndReset(year + 1)}
+            className="rounded-lg px-2 py-1 text-sm text-ink-soft hover:bg-paper-2 disabled:opacity-35"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-ink-soft">{t.dash.declaredHint}</p>
+      <p className="mt-3 font-display text-2xl tabular leading-tight">{formatEur(byMonth.yearTotal, locale)}</p>
+      <p className="mt-0.5 text-xs text-muted">
+        {t.dash.yearTotal} · {year}
+      </p>
+
+      {byMonth.yearTotal === 0 ? (
+        <p className="mt-4 text-sm text-muted">{t.dash.noDeclared}</p>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {byMonth.quarters.map((q) => (
+              <div key={q.q} className="rounded-xl bg-paper-2 px-3 py-2">
+                <p className="text-[11px] uppercase tracking-wide text-muted">{t.dash.quarterTotal(q.q)}</p>
+                <p className="mt-0.5 font-display text-lg tabular">{formatEur(q.total, locale)}</p>
+              </div>
+            ))}
+          </div>
+
+          <ul className="mt-4 divide-y divide-line">
+            {byMonth.months.map((m) => {
+              const current = isCurrentYear && m.month === currentMonth;
+              const open = openMonth === m.month;
+              const pct = maxMonth > 0 ? Math.round((m.total / maxMonth) * 100) : 0;
+              return (
+                <li key={m.month}>
+                  <button
+                    type="button"
+                    onClick={() => toggleMonth(m.month)}
+                    className={`w-full py-2.5 text-left ${current ? "bg-olive-mist -mx-2 px-2 rounded-xl" : ""}`}
+                  >
+                    <span className="flex items-center gap-3">
+                      <span className="w-[7.5rem] shrink-0 text-sm font-medium">
+                        {monthLabel(m.month, locale)}
+                        {current ? (
+                          <span className="ml-1.5 text-[10px] uppercase tracking-wide text-olive">
+                            {t.dash.currentMonth}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="h-1.5 min-w-0 flex-1 rounded-full bg-paper-2">
+                        <span
+                          className={`block h-1.5 rounded-full ${open ? "bg-olive" : "bg-terracotta"}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </span>
+                      <span className="shrink-0 tabular text-sm">{formatEur(m.total, locale)}</span>
+                    </span>
+                  </button>
+                  {open && byDay ? (
+                    <div className="mb-3 ml-1 border-l border-line pl-4">
+                      <p className="text-[11px] uppercase tracking-wide text-muted">{t.dash.byDay}</p>
+                      {byDay.days.length === 0 ? (
+                        <p className="mt-1 text-sm text-muted">{t.dash.noDeclared}</p>
+                      ) : (
+                        <ul className="mt-1">
+                          {byDay.days.map((d) => {
+                            const dayOpen = openDay === d.date;
+                            return (
+                              <li key={d.date} className="py-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenDay(dayOpen ? null : d.date)}
+                                  className="flex w-full items-center justify-between gap-2 py-1 text-left text-sm"
+                                >
+                                  <span className="tabular">{formatDate(d.date)}</span>
+                                  <span className="tabular">{formatEur(d.total, locale)}</span>
+                                </button>
+                                {dayOpen ? (
+                                  <div className="mb-2">
+                                    <p className="text-[11px] uppercase tracking-wide text-muted">
+                                      {t.dash.invoicesThatDay}
+                                    </p>
+                                    <ul className="mt-1 space-y-1">
+                                      {d.invoices.map((inv) => (
+                                        <li key={inv.id}>
+                                          <Link
+                                            href={`/facturas/${inv.id}`}
+                                            className="flex items-center justify-between gap-2 text-sm text-terracotta hover:underline"
+                                          >
+                                            <span>
+                                              {inv.number ?? "—"} · {clientName(inv.clientId)}
+                                            </span>
+                                            <span className="tabular text-ink">
+                                              {formatEur(cobradoEur(inv), locale)}
+                                            </span>
+                                          </Link>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </section>
   );
 }
