@@ -208,6 +208,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         number: null,
         status: "brouillon",
         issueDate: now,
+        serviceDate: now,
         dueDate: inv.dueDate,
         cobroDate: "",
         payment: null,
