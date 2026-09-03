@@ -37,10 +37,17 @@ function migrate(raw: unknown): Database {
     ? raw.clients.map(migrateClient).filter((c): c is Client => c !== null)
     : [];
   const invoices = Array.isArray(raw.invoices)
-    ? (raw.invoices as Invoice[]).map((inv) => ({
-        ...inv,
-        huella: typeof (inv as Invoice).huella === "string" ? (inv as Invoice).huella : "",
-      }))
+    ? (raw.invoices as Invoice[]).map((inv) => {
+        const issueDate = typeof inv.issueDate === "string" ? inv.issueDate : "";
+        const serviceDate =
+          typeof inv.serviceDate === "string" && inv.serviceDate ? inv.serviceDate : issueDate;
+        return {
+          ...inv,
+          issueDate,
+          serviceDate,
+          huella: typeof inv.huella === "string" ? inv.huella : "",
+        };
+      })
     : [];
   return { version: 2, settings, clients, invoices };
 }
