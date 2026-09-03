@@ -78,6 +78,7 @@ export function buildSample(locale: Locale = "es"): Database {
     status: "cobrada",
     clientId: c1.id,
     issueDate: twoMonths,
+    serviceDate: twoMonths,
     dueDate: addDays(twoMonths, 14),
     cobroDate: lastMonth,
     items: [
@@ -117,6 +118,7 @@ export function buildSample(locale: Locale = "es"): Database {
     status: "emise",
     clientId: c2.id,
     issueDate: lastMonth,
+    serviceDate: lastMonth,
     dueDate: dueSoon,
     cobroDate: "",
     items: [
@@ -151,6 +153,7 @@ export function buildSample(locale: Locale = "es"): Database {
     status: "emise",
     clientId: c1.id,
     issueDate: addDays(today, -40),
+    serviceDate: addDays(today, -40),
     dueDate: overdueDate,
     cobroDate: "",
     items: [
@@ -177,13 +180,14 @@ export function buildSample(locale: Locale = "es"): Database {
     status: "brouillon",
     clientId: c2.id,
     issueDate: today,
+    serviceDate: today,
     dueDate: addDays(today, 14),
     cobroDate: "",
     items: [
       {
         id: uid("li"),
         description: es
-          ? "Pack abril — contenidos orgánicos (por confirmar)"
+          ? "Pack abril — contenus orgánicos (por confirmar)"
           : "Forfait avril — contenus organiques (à confirmer)",
         quantity: 1,
         unitPriceEur: 1800,
