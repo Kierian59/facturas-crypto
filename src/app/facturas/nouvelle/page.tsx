@@ -29,6 +29,7 @@ function GuidedCreate() {
     { id: uid("li"), description: "", quantity: 1, unitPriceEur: 0 },
   ]);
   const [issueDate, setIssueDate] = useState(isoDate());
+  const [serviceDate, setServiceDate] = useState(isoDate());
   const [dueDate, setDueDate] = useState(addDays(isoDate(), 14));
   const [notes, setNotes] = useState("");
   const [irpfRate, setIrpfRate] = useState(0);
@@ -63,6 +64,7 @@ function GuidedCreate() {
       status: "brouillon",
       clientId,
       issueDate,
+      serviceDate: serviceDate || issueDate,
       dueDate,
       cobroDate: "",
       items: items.filter((i) => i.description.trim()),
@@ -200,6 +202,9 @@ function GuidedCreate() {
           <>
             <Field label={t.facturas.issueDate} required hint={t.facturas.issueHint}>
               <Input type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} />
+            </Field>
+            <Field label={t.facturas.serviceDate} optional hint={t.facturas.serviceHint}>
+              <Input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} />
             </Field>
             <Field label={t.facturas.dueDate} optional hint={t.facturas.dueHint}>
               <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
