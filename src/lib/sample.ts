@@ -187,7 +187,7 @@ export function buildSample(locale: Locale = "es"): Database {
       {
         id: uid("li"),
         description: es
-          ? "Pack abril — contenus orgánicos (por confirmar)"
+          ? "Pack abril — contenidos orgánicos (por confirmar)"
           : "Forfait avril — contenus organiques (à confirmer)",
         quantity: 1,
         unitPriceEur: 1800,
