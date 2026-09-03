@@ -175,6 +175,14 @@ export default function FacturaDetailPage() {
                 onChange={(e) => patch({ issueDate: e.target.value })}
               />
             </Field>
+            <Field label={t.facturas.serviceDate} optional>
+              <Input
+                type="date"
+                disabled={locked}
+                value={inv.serviceDate || inv.issueDate}
+                onChange={(e) => patch({ serviceDate: e.target.value })}
+              />
+            </Field>
             <Field label={t.facturas.dueDate} optional>
               <Input
                 type="date"
