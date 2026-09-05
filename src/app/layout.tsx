@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Outfit } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 
@@ -18,7 +19,7 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   title: "Facturas Crypto",
   description:
-    "Facturación local EUR + crypto para autónomo: marcas fuera de la UE, modelo 303 / 130.",
+    "Facturación EUR + crypto para autónomo: marcas fuera de la UE, modelo 303 / 130. Compte Google.",
 };
 
 export const viewport: Viewport = {
@@ -31,7 +32,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${outfit.variable} ${fraunces.variable}`}>
       <body className="antialiased">
-        <Providers>{children}</Providers>
+        <ClerkProvider>
+          <Providers>{children}</Providers>
+        </ClerkProvider>
       </body>
     </html>
   );
