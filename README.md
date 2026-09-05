@@ -1,32 +1,34 @@
 # Facturas Crypto
 
-Outil **local** de facturation / herramienta **local** de facturación para un autónomo en Espagne qui crée des publications sociales pour des **marques hors UE**, et qui encaisse en **crypto** (USDT, BTC, ETH…).
+Outil de facturation avec comptes Google (Clerk) + Neon Postgres.
 
-Interface **FR / ES** (toggle dans la barre latérale, l’accueil et les paramètres). Défaut : **espagnol**. La factura PDF est **toujours en espagnol** (document légal).
+## Comptes
 
-La devise légale des facturas est l’**EUR**. La crypto est le moyen de paiement.
+Auth Google via Clerk. Donnees par userId.
+Premier login: import localStorage une fois si compte vide.
 
-## Ce que c’est
+## Setup Clerk
 
-- Carnet de **clients** (marques hors Europe, avec **domicilio**) et de **facturas** numérotées.
-- PDF / impression A4 avec mentions légales (NIF, España, operación no sujeta a IVA, etc.).
-- **QR tributario** No-Verifactu : cotejo sur le site de l’AEAT (pas d’envoi du registro).
-- Tableau de bord trimestriel indicatif : **modelo 303** et **modelo 130**.
-- Données uniquement dans **ton navigateur** (localStorage). Pas de compte, pas de serveur.
+1. dashboard.clerk.com
+2. Social Connections: activer Google
+3. Cles dans .env.local (.env.example)
+4. Paths /sign-in et /sign-up
+5. Autoriser localhost + domaine prod
 
-## Ce que ce n’est pas
+## Setup Neon
 
-Ceci n’est **pas** un dépôt AEAT / Verifactu, ni un SIF homologué, ni un conseil fiscal. Les autonomos doivent disposer d’un SIF conforme à partir du **1er juillet 2027** (RDL 15/2025). Cette v1 permet de cotejar les données sur la sede AEAT ; elle ne remet pas le registro de facturación.
+1. console.neon.tech
+2. DATABASE_URL sslmode=require
+3. npx prisma migrate deploy
 
-## Lancer en local
+## Env
 
-Voir les scripts dans package.json (dev / build / start). Ouvre ensuite http://localhost:3000
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY,
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in, NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up,
+DATABASE_URL
 
-## Données
+Vercel: ajouter ces variables manuellement.
 
-Export / import JSON depuis **Paramètres / Ajustes**.
+## Local
 
-## Mentions IVA (v1)
-
-Pour un service B2B hors UE, la factura indique une **operación no sujeta a IVA** (art. 69.Uno.1º Ley 37/1992).
-
+Voir package.json scripts dev/build/start et prisma migrate deploy.

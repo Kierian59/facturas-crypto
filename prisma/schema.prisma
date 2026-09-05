@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Paramètres d'émetteur — 1:1 avec le userId Clerk
+model Settings {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  onboarded    Boolean  @default(false)
+  locale       String   @default("es")
+  nombre       String   @default("")
+  nif          String   @default("")
+  direccion    String   @default("")
+  ciudad       String   @default("")
+  cp           String   @default("")
+  email        String   @default("")
+  activity     String   @default("")
+  defaultAsset String   @default("USDT")
+  wallets      Json
+  seriesPrefix String
+  nextSeq      Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Client {
+  userId      String
+  id          String
+  brand       String
+  country     String  @default("")
+  countryCode String  @default("")
+  address     String  @default("")
+  taxId       String  @default("")
+  email       String  @default("")
+  notes       String  @default("")
+  horsUE      Boolean @default(true)
+  createdAt   String  @default("")
+
+  @@id([userId, id])
+  @@index([userId])
+}
+
+model Invoice {
+  userId      String
+  id          String
+  number      String?
+  status      String
+  clientId    String
+  issueDate   String  @default("")
+  serviceDate String  @default("")
+  dueDate     String  @default("")
+  cobroDate   String  @default("")
+  items       Json
+  notes       String  @default("")
+  irpfRate    Float   @default(0)
+  payment     Json?
+  huella      String  @default("")
+  createdAt   String  @default("")
+  updatedAt   String  @default("")
+
+  @@id([userId, id])
+  @@index([userId])
+}
