@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useStore, useT } from "@/lib/store";
+import { UserButton } from "@clerk/nextjs";
 import { LanguageToggle } from "@/components/ui";
 import { activityForLocale, type Locale } from "@/lib/i18n";
 
@@ -94,6 +95,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <span className="text-[11px] uppercase tracking-wide text-muted">{t.lang}</span>
             <LanguageToggle locale={settings.locale} onChange={setLocale} />
           </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] uppercase tracking-wide text-muted">Compte</span>
+            <UserButton />
+          </div>
           <p className="text-[11px] leading-relaxed text-muted">
             {t.localTool}
           </p>
@@ -104,8 +109,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <header className="no-print md:hidden sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-paper/90 px-4 py-3 backdrop-blur">
           <span className="stamp text-sm">F</span>
           <span className="font-display text-lg">Facturas</span>
-          <span className="ml-auto">
+          <span className="ml-auto flex items-center gap-2">
             <LanguageToggle locale={settings.locale} onChange={setLocale} />
+            <UserButton />
           </span>
         </header>
         <main className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-8">{children}</main>
