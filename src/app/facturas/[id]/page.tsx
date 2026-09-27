@@ -282,7 +282,19 @@ export default function FacturaDetailPage() {
             >
               {t.facturas.deleteDraft}
             </Button>
-          ) : null}
+          ) : (
+            <Button
+              variant="danger"
+              className="w-full"
+              onClick={() => {
+                if (!confirm(t.facturas.confirmDeleteIssued(inv.number ?? ""))) return;
+                deleteInvoice(inv.id, { force: true });
+                router.push("/facturas");
+              }}
+            >
+              {t.facturas.deleteIssued}
+            </Button>
+          )}
         </aside>
       </div>
 

@@ -24,7 +24,7 @@ type Store = {
   emitInvoice: (id: string) => Promise<{ ok: true; number: string } | { ok: false; error: string }>;
   recordPayment: (id: string, payment: CryptoPayment, cobroDate: string) => { ok: true } | { ok: false; error: string };
   duplicateInvoice: (id: string) => Invoice | null;
-  deleteInvoice: (id: string) => void;
+  deleteInvoice: (id: string, opts?: { force?: boolean }) => void;
   loadSample: () => { ok: true } | { ok: false; error: string };
   exportData: () => string;
   importData: (text: string) => { ok: true } | { ok: false; error: string };
@@ -193,10 +193,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return copy;
   }, [mutate]);
 
-  const deleteInvoice = useCallback((id: string) => {
+  const deleteInvoice = useCallback((id: string, opts?: { force?: boolean }) => {
     mutate((d) => {
       const inv = d.invoices.find((x) => x.id === id);
-      if (!inv || inv.status !== "brouillon") return d;
+      if (!inv || (inv.status !== "brouillon" && !opts?.force)) return d;
       return { ...d, invoices: d.invoices.filter((x) => x.id !== id) };
     });
   }, [mutate]);

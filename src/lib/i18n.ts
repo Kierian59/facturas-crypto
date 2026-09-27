@@ -250,6 +250,9 @@ const es = {
     duplicate: "Duplicar en borrador",
     deleteDraft: "Eliminar el borrador",
     confirmDelete: "¿Eliminar este borrador?",
+    deleteIssued: "Eliminar la factura emitida",
+    confirmDeleteIssued: (n: string) =>
+      `⚠️ ¿Eliminar definitivamente la factura ${n}?\n\nUna factura emitida no debería borrarse: la numeración debe ser correlativa y Hacienda exige conservar las facturas emitidas. Si la factura ya se envió al cliente o se declaró (303/130), lo correcto es emitir una factura rectificativa.\n\nElimínala solo si se trata de un error (nunca enviada ni declarada). Esta acción no se puede deshacer.`,
     markedCobrada: "Marcada cobrada.",
     cobro: "Cobro",
     rate: "Tipo",
@@ -574,6 +577,9 @@ const fr: Dict = {
     duplicate: "Dupliquer en brouillon",
     deleteDraft: "Supprimer le brouillon",
     confirmDelete: "Supprimer ce brouillon ?",
+    deleteIssued: "Supprimer la facture émise",
+    confirmDeleteIssued: (n: string) =>
+      `⚠️ Supprimer définitivement la facture ${n} ?\n\nUne facture émise ne devrait normalement pas être supprimée : la numérotation doit rester continue et Hacienda exige de conserver les factures émises. Si elle a déjà été envoyée au client ou déclarée (303/130), il faut plutôt faire une factura rectificativa.\n\nSupprime-la seulement si c'est une erreur (jamais envoyée ni déclarée). Cette action est irréversible.`,
     markedCobrada: "Marquée cobrada.",
     cobro: "Cobro",
     rate: "Taux",
