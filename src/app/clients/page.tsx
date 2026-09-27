@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useStore, useT } from "@/lib/store";
+import { clientCountryLabel } from "@/lib/countries";
 import { Button, Empty, PageTitle } from "@/components/ui";
 
 export default function ClientsPage() {
@@ -41,7 +42,7 @@ export default function ClientsPage() {
                 <span>
                   <span className="block font-medium">{c.brand}</span>
                   <span className="text-sm text-muted">
-                    {c.country}
+                    {clientCountryLabel(c, settings.locale)}
                     {c.horsUE ? ` · ${t.horsUE}` : ` · ${t.inUE}`}
                     {c.taxId ? ` · ${c.taxId}` : ""}
                   </span>

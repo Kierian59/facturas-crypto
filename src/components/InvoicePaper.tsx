@@ -4,7 +4,7 @@ import { QRCodeSVG } from "qrcode.react";
 import type { Client, Invoice, Settings } from "@/lib/types";
 import { formatDate, formatEur, formatNum, invoiceBase, irpfAmount, invoiceTotal } from "@/lib/format";
 import { IVA_NOSUJETA } from "@/lib/tax";
-import { countryName } from "@/lib/countries";
+import { clientCountryEs } from "@/lib/countries";
 import { aeatCotejoUrl } from "@/lib/aeat";
 
 export function InvoicePaper({
@@ -21,7 +21,7 @@ export function InvoicePaper({
   const total = invoiceTotal(base, invoice.irpfRate);
   const number = invoice.number ?? "BORRADOR";
   const cityLine = [settings.cp, settings.ciudad].filter(Boolean).join(" ");
-  const clientCountry = client ? countryName(client.countryCode, "es") || client.country : "";
+  const clientCountry = clientCountryEs(client);
   const serviceDate = invoice.serviceDate || invoice.issueDate;
   const cotejo =
     invoice.number && invoice.status !== "brouillon"
@@ -171,7 +171,7 @@ export function InvoicePaper({
               <PayCell k="Medio de pago" v="Criptomoneda" />
               <PayCell
                 k="Criptomoneda"
-                v={`${invoice.payment.asset}${invoice.payment.network ? ` · ${invoice.payment.network}` : ""}`}
+                v={`${invoice.payment.asset || "—"}${invoice.payment.network ? ` · ${netEs(invoice.payment.network)}` : ""}`}
               />
               <PayCell k="Valor de la operación" v={formatEur(invoice.payment.eurEquivalent, "es")} />
               <PayCell
@@ -198,7 +198,7 @@ export function InvoicePaper({
           <>
             <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-[13px] sm:grid-cols-4">
               <PayCell k="Medio de pago" v="Criptomoneda" />
-              <PayCell k="Criptomoneda" v={settings.defaultAsset || "USDT"} />
+              <PayCell k="Criptomoneda" v={settings.defaultAsset?.trim() || "USDT"} />
               <PayCell k="Valor de la operación" v={formatEur(total, "es")} />
               <PayCell k="Fecha de pago" v="Pendiente" />
             </div>
@@ -207,7 +207,7 @@ export function InvoicePaper({
             </p>
             {settings.wallets[0]?.address ? (
               <p className="mt-1 text-[10px] break-all text-[#7a7164]">
-                Dirección {settings.wallets[0].asset} {settings.wallets[0].network}: {settings.wallets[0].address}
+                Dirección {settings.wallets[0].asset} {netEs(settings.wallets[0].network)}: {settings.wallets[0].address}
               </p>
             ) : null}
           </>
@@ -267,7 +267,12 @@ function PayCell({ k, v }: { k: string; v: string }) {
   return (
     <div>
       <p className="text-[9px] uppercase tracking-[0.14em] text-[#7a7164]">{k}</p>
-      <p className="mt-0.5 tabular">{v}</p>
+      <p className="mt-0.5 tabular break-words">{v}</p>
     </div>
   );
+}
+
+/** Libellé réseau pour la factura en espagnol (« Autre » est la valeur interne pour « autre réseau »). */
+function netEs(n: string): string {
+  return n === "Autre" ? "otra red" : n;
 }

@@ -71,6 +71,7 @@ const es = {
     pickClient: "Elige un cliente, o crea uno.",
     eurAmount: "Introduce el equivalente EUR.",
     cryptoAmount: "Introduce el importe en crypto.",
+    cryptoAsset: "Indica la crypto recibida (p. ej. USDT, SOL, PEPE…).",
   },
 
   dash: {
@@ -144,7 +145,7 @@ const es = {
     step2Title: "Crypto de cobro",
     step2Body: "La factura sigue en EUR. Aquí indicas cómo te pagan.",
     defaultAsset: "Activo por defecto",
-    defaultAssetHint: "USDT encaja bien con marcas de EE. UU. / Reino Unido.",
+    defaultAssetHint: "Escribe cualquier crypto (USDT, BTC, SOL, PEPE, un token propio…). USDT encaja bien con marcas de EE. UU. / Reino Unido.",
     addWallet: "+ otra dirección",
     step3Title: "Numeración",
     step3Body: "Serie secuencial: una vez emitida, una factura conserva su número. No se salta.",
@@ -186,7 +187,8 @@ const es = {
     brandHint: "El nombre que aparecerá en la factura.",
     country: "País",
     countryHint:
-      "Por defecto fuera de la UE. Si eliges un país UE, el tratamiento IVA de v1 (no sujeta extra-UE) ya no aplica tal cual.",
+      "Escribe el país libremente (hay sugerencias). Si se reconoce un país UE, la casilla «fuera de la UE» se desmarca; un país no reconocido se trata como fuera de la UE (no sujeta, art. 69.Uno.1º LIVA). Puedes corregir la casilla a mano.",
+    countryPlaceholder: "Estados Unidos, Reino Unido, Dubái…",
     horsUECheck: "Cliente fuera de la UE — operación no sujeta a IVA (art. 69.Uno.1º LIVA).",
     ueWarn: "Cliente UE: v1 no aplica la autoliquidación intra-UE. Compruébalo con tu gestoría.",
     taxId: "Tax ID extranjero",
@@ -269,6 +271,7 @@ const es = {
     rateDate: "Fecha del tipo",
     rateSource: "Fuente del tipo",
     rateSourceHint: "Ej. Binance, captura de pantalla, banco…",
+    assetHint: "Cualquier crypto: USDT, BTC, SOL, PEPE, un token propio…",
     rateManual: "Manual",
     cobroDate: "Fecha de cobro",
     network: "Red",
@@ -289,6 +292,7 @@ const es = {
     email: "E-mail",
     activity: "Actividad",
     defaultAsset: "Activo crypto por defecto",
+    assetHint: "Escribe cualquier crypto (USDT, BTC, SOL, PEPE, un token propio…).",
     seriesPrefix: "Prefijo de serie",
     nextSeq: "Próximo número",
     nextSeqHint:
@@ -391,6 +395,7 @@ const fr: Dict = {
     pickClient: "Choisis un client, ou crée-en un.",
     eurAmount: "Saisis l’équivalent EUR.",
     cryptoAmount: "Saisis le montant crypto.",
+    cryptoAsset: "Indique la crypto reçue (ex. USDT, SOL, PEPE…).",
   },
 
   dash: {
@@ -464,7 +469,7 @@ const fr: Dict = {
     step2Title: "Crypto de règlement",
     step2Body: "La factura reste en EUR. Ici tu indiques comment on te paie.",
     defaultAsset: "Actif par défaut",
-    defaultAssetHint: "USDT convient bien aux marques US / UK.",
+    defaultAssetHint: "Saisis n’importe quelle crypto (USDT, BTC, SOL, PEPE, un token maison…). USDT convient bien aux marques US / UK.",
     addWallet: "+ autre adresse",
     step3Title: "Numérotation",
     step3Body: "Série séquentielle : une fois émise, une factura garde son numéro. On ne saute pas.",
@@ -506,7 +511,8 @@ const fr: Dict = {
     brandHint: "Le nom qui apparaîtra sur la factura.",
     country: "Pays",
     countryHint:
-      "Par défaut hors UE. Si tu choisis un pays UE, le traitement IVA de v1 (no sujeta extra-UE) ne s’applique plus tel quel.",
+      "Saisis le pays librement (suggestions proposées). Si un pays UE est reconnu, la case « hors UE » se décoche ; un pays non reconnu est traité hors UE (no sujeta, art. 69.Uno.1º LIVA). Tu peux corriger la case à la main.",
+    countryPlaceholder: "États-Unis, Royaume-Uni, Dubaï…",
     horsUECheck: "Client hors UE — operación no sujeta a IVA (art. 69.Uno.1º LIVA).",
     ueWarn: "Client UE : v1 n’applique pas l’autoliquidation intra-UE. Vérifie avec ta gestoría.",
     taxId: "Tax ID étranger",
@@ -589,6 +595,7 @@ const fr: Dict = {
     rateDate: "Date du taux",
     rateSource: "Source du taux",
     rateSourceHint: "Ex. Binance, capture d’écran, banque…",
+    assetHint: "N’importe quelle crypto : USDT, BTC, SOL, PEPE, un token maison…",
     rateManual: "Manuel",
     cobroDate: "Fecha de cobro",
     network: "Réseau",
@@ -609,6 +616,7 @@ const fr: Dict = {
     email: "E-mail",
     activity: "Activité",
     defaultAsset: "Actif crypto par défaut",
+    assetHint: "Saisis n’importe quelle crypto (USDT, BTC, SOL, PEPE, un token maison…).",
     seriesPrefix: "Préfixe de série",
     nextSeq: "Prochain numéro",
     nextSeqHint:

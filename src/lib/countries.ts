@@ -57,7 +57,45 @@ const NAMES: { code: string; nameFr: string; nameEs: string }[] = [
   { code: "SE", nameFr: "Suède", nameEs: "Suecia" },
   { code: "PL", nameFr: "Pologne", nameEs: "Polonia" },
   { code: "ES", nameFr: "Espagne", nameEs: "España" },
+  { code: "BG", nameFr: "Bulgarie", nameEs: "Bulgaria" },
+  { code: "HR", nameFr: "Croatie", nameEs: "Croacia" },
+  { code: "CY", nameFr: "Chypre", nameEs: "Chipre" },
+  { code: "CZ", nameFr: "Tchéquie", nameEs: "Chequia" },
+  { code: "DK", nameFr: "Danemark", nameEs: "Dinamarca" },
+  { code: "EE", nameFr: "Estonie", nameEs: "Estonia" },
+  { code: "FI", nameFr: "Finlande", nameEs: "Finlandia" },
+  { code: "GR", nameFr: "Grèce", nameEs: "Grecia" },
+  { code: "HU", nameFr: "Hongrie", nameEs: "Hungría" },
+  { code: "LV", nameFr: "Lettonie", nameEs: "Letonia" },
+  { code: "LT", nameFr: "Lituanie", nameEs: "Lituania" },
+  { code: "LU", nameFr: "Luxembourg", nameEs: "Luxemburgo" },
+  { code: "MT", nameFr: "Malte", nameEs: "Malta" },
+  { code: "RO", nameFr: "Roumanie", nameEs: "Rumanía" },
+  { code: "SK", nameFr: "Slovaquie", nameEs: "Eslovaquia" },
+  { code: "SI", nameFr: "Slovénie", nameEs: "Eslovenia" },
 ];
+
+/** Variantes courantes (EN, abréviations, sans accents) → code ISO. */
+const ALIASES: Record<string, string> = {
+  usa: "US", "u.s.a.": "US", "u.s.": "US", "united states": "US", "united states of america": "US",
+  "etats unis": "US", eeuu: "US", "ee.uu.": "US", "ee. uu.": "US", "estados unidos de america": "US",
+  uk: "GB", "u.k.": "GB", "united kingdom": "GB", "great britain": "GB", "grande bretagne": "GB",
+  "gran bretana": "GB", england: "GB", angleterre: "GB", inglaterra: "GB", scotland: "GB", ecosse: "GB",
+  escocia: "GB", wales: "GB",
+  switzerland: "CH", schweiz: "CH", uae: "AE", eau: "AE", dubai: "AE", "emirats arabes unis": "AE",
+  japan: "JP", "south korea": "KR", korea: "KR", coree: "KR", mexico: "MX", brazil: "BR",
+  argentina: "AR", chile: "CL", colombia: "CO", india: "IN", norway: "NO", iceland: "IS",
+  "new zealand": "NZ", "south africa": "ZA", "hong kong": "HK", taiwan: "TW", thailand: "TH",
+  singapore: "SG", australia: "AU", canada: "CA", israel: "IL", turkey: "TR", turkiye: "TR",
+  ukraine: "UA", "saudi arabia": "SA", qatar: "QA", malaysia: "MY", philippines: "PH", indonesia: "ID",
+  germany: "DE", deutschland: "DE", france: "FR", italy: "IT", italia: "IT", netherlands: "NL",
+  holland: "NL", hollande: "NL", holanda: "NL", nederland: "NL", belgium: "BE", portugal: "PT",
+  ireland: "IE", austria: "AT", osterreich: "AT", sweden: "SE", poland: "PL", polska: "PL",
+  spain: "ES", espana: "ES", bulgaria: "BG", croatia: "HR", cyprus: "CY", "czech republic": "CZ",
+  czechia: "CZ", "republique tcheque": "CZ", "republica checa": "CZ", denmark: "DK", estonia: "EE",
+  finland: "FI", greece: "GR", hungary: "HU", latvia: "LV", lithuania: "LT", luxembourg: "LU",
+  malta: "MT", romania: "RO", slovakia: "SK", slovenia: "SI",
+};
 
 export const COUNTRIES: Country[] = NAMES.map((c) => ({
   ...c,
@@ -75,3 +113,56 @@ export function countryName(codeOrCountry: string | Country | undefined, locale:
 }
 
 export const DEFAULT_CLIENT_COUNTRY = "US";
+
+function norm(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Pays saisi librement → pays connu (code ISO, nom FR/ES ou variante courante).
+ * Retourne undefined si le texte n'est pas reconnu (le client est alors traité hors UE par défaut).
+ */
+export function resolveCountry(text: string): Country | undefined {
+  const raw = text.trim();
+  if (!raw) return undefined;
+  if (/^[A-Za-z]{2}$/.test(raw)) {
+    const byCode = countryByCode(raw.toUpperCase());
+    if (byCode) return byCode;
+  }
+  const n = norm(raw);
+  const byName = COUNTRIES.find((c) => norm(c.nameFr) === n || norm(c.nameEs) === n);
+  if (byName) return byName;
+  const alias = ALIASES[n];
+  return alias ? countryByCode(alias) : undefined;
+}
+
+/**
+ * Libellé d'affichage du pays d'un client : le texte saisi tel quel ; pour les anciennes données
+ * sans texte (code ISO seul), le nom est retrouvé via le code.
+ */
+export function clientCountryLabel(
+  client: { country?: string; countryCode?: string } | null | undefined,
+  locale: Locale,
+): string {
+  if (!client) return "";
+  const typed = (client.country ?? "").trim();
+  if (typed) return typed;
+  return client.countryCode ? countryName(client.countryCode, locale) : "";
+}
+
+/**
+ * Libellé du pays pour la factura (PDF en espagnol) : nom officiel espagnol si le pays est reconnu,
+ * sinon le texte saisi.
+ */
+export function clientCountryEs(client: { country?: string; countryCode?: string } | null | undefined): string {
+  if (!client) return "";
+  const known =
+    (client.countryCode ? countryByCode(client.countryCode) : undefined) ?? resolveCountry(client.country ?? "");
+  return known ? known.nameEs : clientCountryLabel(client, "es");
+}

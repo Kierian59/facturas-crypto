@@ -2,8 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Field, Input, Select, Textarea } from "@/components/ui";
-import { COUNTRIES, DEFAULT_CLIENT_COUNTRY, countryByCode, countryName } from "@/lib/countries";
+import { Button, Field, Input, Textarea } from "@/components/ui";
+import {
+  COUNTRIES,
+  DEFAULT_CLIENT_COUNTRY,
+  clientCountryLabel,
+  countryByCode,
+  countryName,
+  resolveCountry,
+} from "@/lib/countries";
 import type { Client } from "@/lib/types";
 import { uid, isoDate } from "@/lib/format";
 import { useStore, useT } from "@/lib/store";
@@ -14,7 +21,10 @@ export function ClientForm({ existing }: { existing?: Client }) {
   const router = useRouter();
   const def = countryByCode(DEFAULT_CLIENT_COUNTRY)!;
   const [brand, setBrand] = useState(existing?.brand ?? "");
-  const [countryCode, setCountryCode] = useState(existing?.countryCode ?? def.code);
+  const locale = settings.locale;
+  const [countryText, setCountryText] = useState(
+    existing ? clientCountryLabel(existing, locale) : countryName(def, locale),
+  );
   const [address, setAddress] = useState(existing?.address ?? "");
   const [taxId, setTaxId] = useState(existing?.taxId ?? "");
   const [email, setEmail] = useState(existing?.email ?? "");
@@ -22,13 +32,12 @@ export function ClientForm({ existing }: { existing?: Client }) {
   const [horsUE, setHorsUE] = useState(existing?.horsUE ?? def.horsUE);
   const [error, setError] = useState("");
 
-  const country = countryByCode(countryCode);
-  const locale = settings.locale;
-
-  function onCountry(code: string) {
-    setCountryCode(code);
-    const c = countryByCode(code);
-    if (c) setHorsUE(c.horsUE);
+  // Saisie libre : si le texte correspond à un pays connu, on en déduit le code ISO et le statut UE.
+  // Texte inconnu → pas de code, client traité hors UE (no sujeta art. 69.Uno.1º) ; case modifiable à la main.
+  function onCountry(text: string) {
+    setCountryText(text);
+    const c = resolveCountry(text);
+    setHorsUE(c ? c.horsUE : true);
   }
 
   function save() {
@@ -36,12 +45,18 @@ export function ClientForm({ existing }: { existing?: Client }) {
       setError(t.errors.brandRequired);
       return;
     }
+    const country = countryText.trim();
+    if (!country) {
+      setError(t.blockers.country);
+      return;
+    }
+    const resolved = resolveCountry(country);
     const id = existing?.id ?? uid("cli");
     const client: Client = {
       id,
       brand: brand.trim(),
-      country: countryName(country, locale) || countryCode,
-      countryCode,
+      country,
+      countryCode: resolved?.code ?? "",
       address: address.trim(),
       taxId: taxId.trim(),
       email: email.trim(),
@@ -59,14 +74,20 @@ export function ClientForm({ existing }: { existing?: Client }) {
         <Input value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Northstar Athletics" />
       </Field>
       <Field label={t.clients.country} required hint={t.clients.countryHint}>
-        <Select value={countryCode} onChange={(e) => onCountry(e.target.value)}>
+        <Input
+          value={countryText}
+          onChange={(e) => onCountry(e.target.value)}
+          list="client-country-suggestions"
+          autoComplete="country-name"
+          placeholder={t.clients.countryPlaceholder}
+        />
+        <datalist id="client-country-suggestions">
           {COUNTRIES.map((c) => (
-            <option key={c.code} value={c.code}>
-              {countryName(c, locale)}
-              {c.horsUE ? "" : ` (${t.inUE})`}
+            <option key={c.code} value={countryName(c, locale)}>
+              {c.horsUE ? t.horsUE : t.inUE}
             </option>
           ))}
-        </Select>
+        </datalist>
       </Field>
       <Field label={t.clients.address} required hint={t.clients.addressHint}>
         <Input

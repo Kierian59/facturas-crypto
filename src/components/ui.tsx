@@ -1,7 +1,8 @@
 "use client";
 
+import { useId } from "react";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from "react";
-import type { InvoiceStatus } from "@/lib/types";
+import { CRYPTO_ASSETS, type InvoiceStatus } from "@/lib/types";
 import type { Locale } from "@/lib/i18n";
 import { useT } from "@/lib/store";
 
@@ -60,6 +61,21 @@ const inputCls =
 
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputCls} ${props.className ?? ""}`} />;
+}
+
+/** Crypto en saisie libre, avec les cryptos courantes proposées en suggestions (datalist). */
+export function AssetInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "list">) {
+  const id = useId();
+  return (
+    <>
+      <Input autoComplete="off" spellCheck={false} placeholder="USDT, BTC, SOL, PEPE…" {...props} list={id} />
+      <datalist id={id}>
+        {CRYPTO_ASSETS.map((a) => (
+          <option key={a} value={a} />
+        ))}
+      </datalist>
+    </>
+  );
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {

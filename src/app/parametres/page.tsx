@@ -1,9 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Button, Disclaimer, Field, Input, LanguageToggle, PageTitle, Select, Textarea } from "@/components/ui";
+import { AssetInput, Button, Disclaimer, Field, Input, LanguageToggle, PageTitle, Select, Textarea } from "@/components/ui";
 import { useStore, useT } from "@/lib/store";
-import { CRYPTO_ASSETS, NETWORKS, type Wallet } from "@/lib/types";
+import { cleanAsset, networksFor, type Wallet } from "@/lib/types";
 import { uid } from "@/lib/format";
 import { activityForLocale, type Locale } from "@/lib/i18n";
 
@@ -62,15 +62,12 @@ export default function ParametresPage() {
         <Field label={t.settings.activity}>
           <Textarea value={settings.activity} onChange={(e) => updateSettings({ activity: e.target.value })} />
         </Field>
-        <Field label={t.settings.defaultAsset}>
-          <Select
+        <Field label={t.settings.defaultAsset} hint={t.settings.assetHint}>
+          <AssetInput
             value={settings.defaultAsset}
             onChange={(e) => updateSettings({ defaultAsset: e.target.value })}
-          >
-            {CRYPTO_ASSETS.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </Select>
+            onBlur={(e) => updateSettings({ defaultAsset: cleanAsset(e.target.value) })}
+          />
         </Field>
         <Field label={t.settings.seriesPrefix}>
           <Input
@@ -97,15 +94,19 @@ export default function ParametresPage() {
             </Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label={t.settings.asset}>
-                <Select value={w.asset} onChange={(e) => patchWallet(w.id, { asset: e.target.value })}>
-                  {CRYPTO_ASSETS.map((a) => (
-                    <option key={a}>{a}</option>
-                  ))}
-                </Select>
+                <AssetInput
+                  value={w.asset}
+                  onChange={(e) => {
+                    const asset = e.target.value;
+                    const nets = networksFor(asset);
+                    patchWallet(w.id, nets.includes(w.network) ? { asset } : { asset, network: nets[0] ?? "" });
+                  }}
+                  onBlur={(e) => patchWallet(w.id, { asset: cleanAsset(e.target.value) })}
+                />
               </Field>
               <Field label={t.settings.network}>
                 <Select value={w.network} onChange={(e) => patchWallet(w.id, { network: e.target.value })}>
-                  {(NETWORKS[w.asset] ?? ["Autre"]).map((n) => (
+                  {networksFor(w.asset, w.network).map((n) => (
                     <option key={n} value={n}>
                       {netLabel(n)}
                     </option>
@@ -124,7 +125,7 @@ export default function ParametresPage() {
           onClick={() =>
             setWallets([
               ...settings.wallets,
-              { id: uid("w"), label: "", asset: settings.defaultAsset, network: "TRC20", address: "" },
+              { id: uid("w"), label: "", asset: cleanAsset(settings.defaultAsset) || "USDT", network: networksFor(settings.defaultAsset || "USDT")[0] ?? "Autre", address: "" },
             ])
           }
         >

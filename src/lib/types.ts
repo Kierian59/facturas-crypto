@@ -102,6 +102,23 @@ export const NETWORKS: Record<string, string[]> = {
   SOL: ["Solana", "Autre"],
 };
 
+/** Toutes les réseaux connus (proposés pour une crypto saisie librement, ex. PEPE, un token maison…). */
+export const ALL_NETWORKS: string[] = [
+  ...new Set(Object.values(NETWORKS).flat().filter((n) => n !== "Autre")),
+  "Autre",
+];
+
+/** Crypto saisie librement : on nettoie seulement les espaces (SOL, PEPE, « mon token »… tout est accepté). */
+export function cleanAsset(asset: string): string {
+  return asset.trim().replace(/\s+/g, " ");
+}
+
+/** Réseaux proposés pour une crypto (insensible à la casse) ; la valeur courante est toujours conservée. */
+export function networksFor(asset: string, current?: string): string[] {
+  const list = NETWORKS[cleanAsset(asset).toUpperCase()] ?? ALL_NETWORKS;
+  return current && !list.includes(current) ? [current, ...list] : list;
+}
+
 export function emptySettings(): Settings {
   const year = new Date().getFullYear();
   return {

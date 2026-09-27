@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { InvoicePaper } from "@/components/InvoicePaper";
-import { Button, Empty, Field, Input, Select, StatusBadge, Textarea } from "@/components/ui";
+import { AssetInput, Button, Empty, Field, Input, Select, StatusBadge, Textarea } from "@/components/ui";
 import { useStore, useT } from "@/lib/store";
 import {
   formatEur,
@@ -15,8 +15,9 @@ import {
   uid,
 } from "@/lib/format";
 import { displayStatus, emitBlockers } from "@/lib/tax";
+import { clientCountryLabel } from "@/lib/countries";
 import type { CryptoPayment, LineItem } from "@/lib/types";
-import { CRYPTO_ASSETS, NETWORKS } from "@/lib/types";
+import { cleanAsset, networksFor } from "@/lib/types";
 import { AEAT_LINKS, aeatCotejoUrl, invoiceTotalEur } from "@/lib/aeat";
 import type { Dict } from "@/lib/i18n";
 
@@ -52,7 +53,7 @@ export default function FacturaDetailPage() {
     nif: settings.nif,
     direccion: settings.direccion,
     clientBrand: client?.brand ?? "",
-    clientCountry: client?.country ?? "",
+    clientCountry: clientCountryLabel(client, locale),
     clientAddress: client?.address ?? "",
     items: inv.items,
     issueDate: inv.issueDate,
@@ -90,7 +91,10 @@ export default function FacturaDetailPage() {
           <h1 className="font-display text-3xl tabular">{inv.number ?? t.facturas.draft}</h1>
           <div className="mt-2 flex items-center gap-2">
             <StatusBadge status={status} />
-            <span className="text-sm text-muted">{client?.brand}</span>
+            <span className="text-sm text-muted">
+              {client?.brand}
+              {client && clientCountryLabel(client, locale) ? ` · ${clientCountryLabel(client, locale)}` : ""}
+            </span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -377,13 +381,13 @@ function PaymentModal({
   onClose: () => void;
   onSave: (p: CryptoPayment, cobroDate: string) => void;
 }) {
-  const [asset, setAsset] = useState(defaultAsset || "USDT");
+  const [asset, setAsset] = useState(cleanAsset(defaultAsset) || "USDT");
   const [amount, setAmount] = useState(expectedEur);
   const [eur, setEur] = useState(expectedEur);
   const [rateDate, setRateDate] = useState(isoDate());
   const [rateSource, setRateSource] = useState(t.pay.rateManual);
   const [txHash, setTxHash] = useState("");
-  const [network, setNetwork] = useState(NETWORKS[asset]?.[0] ?? "");
+  const [network, setNetwork] = useState(networksFor(asset)[0] ?? "");
   const [walletId, setWalletId] = useState(wallets[0]?.id ?? "");
   const [cobroDate, setCobroDate] = useState(isoDate());
   const [err, setErr] = useState("");
@@ -400,18 +404,16 @@ function PaymentModal({
         <h2 className="font-display text-xl">{t.pay.title}</h2>
         <p className="text-xs text-muted mt-1 mb-4">{t.pay.intro}</p>
         <div className="space-y-3">
-          <Field label={t.pay.asset} required>
-            <Select
+          <Field label={t.pay.asset} required hint={t.pay.assetHint}>
+            <AssetInput
               value={asset}
               onChange={(e) => {
-                setAsset(e.target.value);
-                setNetwork(NETWORKS[e.target.value]?.[0] ?? "");
+                const next = e.target.value;
+                setAsset(next);
+                const nets = networksFor(next);
+                if (!nets.includes(network)) setNetwork(nets[0] ?? "");
               }}
-            >
-              {CRYPTO_ASSETS.map((a) => (
-                <option key={a}>{a}</option>
-              ))}
-            </Select>
+            />
           </Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label={t.pay.amount(asset)} required>
@@ -435,7 +437,7 @@ function PaymentModal({
           </Field>
           <Field label={t.pay.network} optional>
             <Select value={network} onChange={(e) => setNetwork(e.target.value)}>
-              {(NETWORKS[asset] ?? ["Autre"]).map((n) => (
+              {networksFor(asset, network).map((n) => (
                 <option key={n} value={n}>
                   {netLabel(n)}
                 </option>
@@ -466,13 +468,17 @@ function PaymentModal({
                 setErr(t.errors.eurAmount);
                 return;
               }
+              if (!cleanAsset(asset)) {
+                setErr(t.errors.cryptoAsset);
+                return;
+              }
               if (!amount || amount <= 0) {
                 setErr(t.errors.cryptoAmount);
                 return;
               }
               onSave(
                 {
-                  asset,
+                  asset: cleanAsset(asset),
                   amount,
                   eurEquivalent: eur,
                   rate,

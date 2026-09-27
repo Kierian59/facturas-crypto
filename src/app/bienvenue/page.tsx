@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Field, Input, LanguageToggle, Select, Textarea } from "@/components/ui";
+import { AssetInput, Button, Field, Input, LanguageToggle, Select, Textarea } from "@/components/ui";
 import { useStore, useT } from "@/lib/store";
-import { emptySettings, CRYPTO_ASSETS, NETWORKS, type Settings, type Wallet } from "@/lib/types";
+import { emptySettings, cleanAsset, networksFor, type Settings, type Wallet } from "@/lib/types";
 import { uid } from "@/lib/format";
 import { activityForLocale, type Locale } from "@/lib/i18n";
 
@@ -112,11 +112,11 @@ export default function BienvenuePage() {
           {step === 2 && (
             <Step title={t.onboarding.step2Title} body={t.onboarding.step2Body}>
               <Field label={t.onboarding.defaultAsset} hint={t.onboarding.defaultAssetHint}>
-                <Select value={form.defaultAsset} onChange={(e) => set("defaultAsset", e.target.value)}>
-                  {CRYPTO_ASSETS.map((a) => (
-                    <option key={a}>{a}</option>
-                  ))}
-                </Select>
+                <AssetInput
+                  value={form.defaultAsset}
+                  onChange={(e) => set("defaultAsset", e.target.value)}
+                  onBlur={(e) => set("defaultAsset", cleanAsset(e.target.value))}
+                />
               </Field>
               {form.wallets.map((w, i) => (
                 <WalletFields
@@ -223,7 +223,7 @@ function WalletFields({
   netLabel: (n: string) => string;
   labels: { label: string; asset: string; network: string; address: string; addressHint: string };
 }) {
-  const nets = NETWORKS[wallet.asset] ?? ["Autre"];
+  const nets = networksFor(wallet.asset, wallet.network);
   return (
     <div className="rounded-xl border border-line p-3 space-y-2">
       <div className="grid grid-cols-2 gap-2">
@@ -231,11 +231,17 @@ function WalletFields({
           <Input value={wallet.label} onChange={(e) => onChange({ ...wallet, label: e.target.value })} />
         </Field>
         <Field label={labels.asset}>
-          <Select value={wallet.asset} onChange={(e) => onChange({ ...wallet, asset: e.target.value })}>
-            {CRYPTO_ASSETS.map((a) => (
-              <option key={a}>{a}</option>
-            ))}
-          </Select>
+          <AssetInput
+            value={wallet.asset}
+            onChange={(e) => {
+              const asset = e.target.value;
+              const available = networksFor(asset);
+              onChange(
+                available.includes(wallet.network) ? { ...wallet, asset } : { ...wallet, asset, network: available[0] ?? "" },
+              );
+            }}
+            onBlur={(e) => onChange({ ...wallet, asset: cleanAsset(e.target.value) })}
+          />
         </Field>
       </div>
       <Field label={labels.network} optional>

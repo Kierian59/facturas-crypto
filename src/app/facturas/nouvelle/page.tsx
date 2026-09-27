@@ -7,6 +7,7 @@ import { Button, Field, Input, Select, Textarea } from "@/components/ui";
 import { useStore, useT } from "@/lib/store";
 import { addDays, formatEur, invoiceBase, invoiceTotal, isoDate, uid } from "@/lib/format";
 import { emitBlockers } from "@/lib/tax";
+import { clientCountryLabel } from "@/lib/countries";
 import type { Invoice, LineItem } from "@/lib/types";
 
 export default function NouvelleFacturaPage() {
@@ -47,7 +48,7 @@ function GuidedCreate() {
         nif: settings.nif,
         direccion: settings.direccion,
         clientBrand: client?.brand ?? "",
-        clientCountry: client?.country ?? "",
+        clientCountry: clientCountryLabel(client, locale),
         clientAddress: client?.address ?? "",
         items,
         issueDate,
@@ -129,7 +130,7 @@ function GuidedCreate() {
                 <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {c.brand} · {c.country}
+                      {c.brand} · {clientCountryLabel(c, locale)}
                       {c.horsUE ? "" : ` (${t.inUE})`}
                     </option>
                   ))}
