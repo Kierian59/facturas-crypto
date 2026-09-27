@@ -10,6 +10,8 @@ import { emitBlockers } from "@/lib/tax";
 import { clientCountryLabel } from "@/lib/countries";
 import type { Invoice, LineItem } from "@/lib/types";
 
+const DEFAULT_LINE_DESCRIPTION = "Servicios de creación y publicación de contenido en la red social X";
+
 export default function NouvelleFacturaPage() {
   const t = useT();
   return (
@@ -27,7 +29,7 @@ function GuidedCreate() {
   const [step, setStep] = useState(0);
   const [clientId, setClientId] = useState(params.get("client") ?? clients[0]?.id ?? "");
   const [items, setItems] = useState<LineItem[]>([
-    { id: uid("li"), description: "", quantity: 1, unitPriceEur: 0 },
+    { id: uid("li"), description: DEFAULT_LINE_DESCRIPTION, quantity: 1, unitPriceEur: 0 },
   ]);
   const [issueDate, setIssueDate] = useState(isoDate());
   const [serviceDate, setServiceDate] = useState(isoDate());
@@ -156,6 +158,19 @@ function GuidedCreate() {
                       setItems((xs) => xs.map((x) => (x.id === it.id ? { ...x, description: e.target.value } : x)))
                     }
                   />
+                  {it.description.trim() !== DEFAULT_LINE_DESCRIPTION && (
+                    <button
+                      type="button"
+                      className="mt-1 rounded-full border border-current/20 px-3 py-1 text-left text-xs text-olive hover:bg-black/5"
+                      onClick={() =>
+                        setItems((xs) =>
+                          xs.map((x) => (x.id === it.id ? { ...x, description: DEFAULT_LINE_DESCRIPTION } : x)),
+                        )
+                      }
+                    >
+                      + {DEFAULT_LINE_DESCRIPTION}
+                    </button>
+                  )}
                 </Field>
                 <div className="grid grid-cols-2 gap-2">
                   <Field label={t.facturas.qty} required>
@@ -191,7 +206,7 @@ function GuidedCreate() {
               type="button"
               className="text-sm text-olive underline"
               onClick={() =>
-                setItems((xs) => [...xs, { id: uid("li"), description: "", quantity: 1, unitPriceEur: 0 }])
+                setItems((xs) => [...xs, { id: uid("li"), description: DEFAULT_LINE_DESCRIPTION, quantity: 1, unitPriceEur: 0 }])
               }
             >
               {t.facturas.addLine}
