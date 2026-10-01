@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useStore, useT } from "@/lib/store";
+import { ProofBadge } from "@/components/CryptoProofPanel";
 import { Button, Empty, PageTitle, StatusBadge } from "@/components/ui";
 import { formatDate, formatEur, invoiceBase, invoiceTotal, isoDate } from "@/lib/format";
 import { displayStatus } from "@/lib/tax";
@@ -87,7 +88,10 @@ export default function FacturasPage() {
                 </span>
                 <span className="text-right">
                   <span className="block tabular text-sm">{formatEur(total, locale)}</span>
-                  <StatusBadge status={status} />
+                  <span className="flex items-center justify-end gap-1.5">
+                    {inv.status === "cobrada" || inv.cryptoProof ? <ProofBadge invoice={inv} showNone={false} /> : null}
+                    <StatusBadge status={status} />
+                  </span>
                 </span>
               </Link>
             </li>

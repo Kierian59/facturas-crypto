@@ -185,7 +185,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const now = isoDate();
       copy = {
         ...inv, id: uid("inv"), number: null, status: "brouillon", issueDate: now, serviceDate: now,
-        dueDate: inv.dueDate, cobroDate: "", payment: null, huella: "",
+        dueDate: inv.dueDate, cobroDate: "", payment: null, cryptoProof: null, huella: "",
         items: inv.items.map((it) => ({ ...it, id: uid("li") })), createdAt: now, updatedAt: now,
       };
       return { ...d, invoices: [...d.invoices, copy] };

@@ -59,6 +59,33 @@ export type CryptoPayment = {
   walletAddress: string;
 };
 
+export type ProofFileRef = {
+  id: string;
+  name: string;
+  mime: string;
+  size: number;
+};
+
+/** Justificatif de paiement crypto (toutes les valeurs sont optionnelles ; montants en texte pour garder les décimales exactes). */
+export type CryptoProof = {
+  txHash: string;
+  network: string;
+  toWallet: string;
+  fromWallet: string;
+  amount: string;
+  asset: string;
+  /** datetime-local « AAAA-MM-JJTHH:mm » (heure locale de l'utilisateur) */
+  receivedAt: string;
+  receivedTz: string;
+  txFile: ProofFileRef | null;
+  rateSource: string;
+  rate: string;
+  rateDate: string;
+  rateUrl: string;
+  rateFile: ProofFileRef | null;
+  updatedAt: string;
+};
+
 export type Invoice = {
   id: string;
   number: string | null;
@@ -72,6 +99,7 @@ export type Invoice = {
   notes: string;
   irpfRate: number;
   payment: CryptoPayment | null;
+  cryptoProof?: CryptoProof | null;
   huella: string;
   createdAt: string;
   updatedAt: string;

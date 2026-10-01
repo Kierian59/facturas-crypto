@@ -4,6 +4,7 @@ import {
   emptySettings,
   type Client,
   type CryptoPayment,
+  type CryptoProof,
   type Database,
   type Invoice,
   type InvoiceStatus,
@@ -26,6 +27,11 @@ function asItems(value: unknown): LineItem[] {
 function asPayment(value: unknown): CryptoPayment | null {
   if (!value || typeof value !== "object") return null;
   return value as CryptoPayment;
+}
+
+function asProof(value: unknown): CryptoProof | null {
+  if (!value || typeof value !== "object") return null;
+  return value as CryptoProof;
 }
 
 function settingsFromRow(row: {
@@ -100,6 +106,7 @@ function invoiceFromRow(row: {
   notes: string;
   irpfRate: number;
   payment: unknown;
+  cryptoProof: unknown;
   huella: string;
   createdAt: string;
   updatedAt: string;
@@ -117,6 +124,7 @@ function invoiceFromRow(row: {
     notes: row.notes,
     irpfRate: row.irpfRate,
     payment: asPayment(row.payment),
+    cryptoProof: asProof(row.cryptoProof),
     huella: row.huella,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -225,12 +233,18 @@ export async function saveUserDatabase(userId: string, db: Database): Promise<Da
           notes: inv.notes,
           irpfRate: inv.irpfRate,
           payment: (inv.payment ?? undefined) as unknown as Prisma.InputJsonValue | undefined,
+          cryptoProof: (inv.cryptoProof ?? undefined) as unknown as Prisma.InputJsonValue | undefined,
           huella: inv.huella,
           createdAt: inv.createdAt,
           updatedAt: inv.updatedAt,
         })),
       });
     }
+
+    // Les pièces jointes d'un justificatif partent avec leur facture.
+    await tx.proofFile.deleteMany({
+      where: { userId, invoiceId: { notIn: db.invoices.map((inv) => inv.id) } },
+    });
   });
 
   const next = await getUserDatabase(userId);

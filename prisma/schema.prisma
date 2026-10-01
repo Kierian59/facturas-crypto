@@ -59,10 +59,28 @@ model Invoice {
   notes       String  @default("")
   irpfRate    Float   @default(0)
   payment     Json?
+  /// Justificatif de paiement crypto (métadonnées JSON ; les pièces jointes sont dans ProofFile)
+  cryptoProof Json?
   huella      String  @default("")
   createdAt   String  @default("")
   updatedAt   String  @default("")
 
   @@id([userId, id])
   @@index([userId])
+}
+
+/// Pièce jointe (capture / PDF) d'un justificatif crypto — stockée à part pour ne pas alourdir /api/me.
+/// Supprimée avec la facture (voir saveUserDatabase).
+model ProofFile {
+  userId    String
+  id        String
+  invoiceId String
+  name      String
+  mime      String
+  size      Int
+  data      String   // contenu en base64 (sans préfixe data:)
+  createdAt DateTime @default(now())
+
+  @@id([userId, id])
+  @@index([userId, invoiceId])
 }

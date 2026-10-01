@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { InvoicePaper } from "@/components/InvoicePaper";
+import { CryptoProofPanel, ProofBadge } from "@/components/CryptoProofPanel";
 import { AssetInput, Button, Empty, Field, Input, Select, StatusBadge, Textarea } from "@/components/ui";
 import { useStore, useT } from "@/lib/store";
 import {
@@ -40,6 +41,7 @@ export default function FacturaDetailPage() {
   const today = isoDate();
   const [payOpen, setPayOpen] = useState(false);
   const [msg, setMsg] = useState("");
+  const [tab, setTab] = useState<"invoice" | "proof">("invoice");
   const locale = settings.locale;
 
   if (!inv) {
@@ -91,6 +93,7 @@ export default function FacturaDetailPage() {
           <h1 className="font-display text-3xl tabular">{inv.number ?? t.facturas.draft}</h1>
           <div className="mt-2 flex items-center gap-2">
             <StatusBadge status={status} />
+            {inv.status !== "brouillon" ? <ProofBadge invoice={inv} showNone={inv.status === "cobrada"} /> : null}
             <span className="text-sm text-muted">
               {client?.brand}
               {client && clientCountryLabel(client, locale) ? ` · ${clientCountryLabel(client, locale)}` : ""}
@@ -118,6 +121,30 @@ export default function FacturaDetailPage() {
       </div>
 
       {msg ? <p className="mb-3 text-sm text-olive">{msg}</p> : null}
+
+      <div className="mb-5 flex gap-1 border-b border-line" role="tablist">
+        {(
+          [
+            ["invoice", t.proof.tabInvoice],
+            ["proof", t.proof.tab],
+          ] as const
+        ).map(([id2, label]) => (
+          <button
+            key={id2}
+            type="button"
+            role="tab"
+            aria-selected={tab === id2}
+            onClick={() => setTab(id2)}
+            className={`-mb-px px-3 py-2 text-sm border-b-2 ${
+              tab === id2 ? "border-terracotta text-ink font-medium" : "border-transparent text-muted hover:text-ink-soft"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "proof" ? <CryptoProofPanel key={inv.id} invoice={inv} /> : <>
       {!locked && blockers.length > 0 ? (
         <div className="mb-4 rounded-xl border border-line bg-paper-2 px-3 py-2 text-xs text-ink-soft">
           {t.facturas.emitBlocked}
@@ -320,6 +347,7 @@ export default function FacturaDetailPage() {
       <div className="mt-10 overflow-auto rounded-2xl border border-line">
         <InvoicePaper invoice={inv} client={client} settings={settings} />
       </div>
+      </>}
     </div>
   );
 }
