@@ -7,6 +7,10 @@ import { IVA_NOSUJETA } from "@/lib/tax";
 import { clientCountryEs } from "@/lib/countries";
 import { aeatCotejoUrl } from "@/lib/aeat";
 
+/**
+ * Factura (siempre en español). Estilo sobrio: negro sobre blanco, filetes finos.
+ * La misma maqueta sirve para la vista en pantalla y para imprimir / guardar en PDF.
+ */
 export function InvoicePaper({
   invoice,
   client,
@@ -21,8 +25,10 @@ export function InvoicePaper({
   const total = invoiceTotal(base, invoice.irpfRate);
   const number = invoice.number ?? "BORRADOR";
   const cityLine = [settings.cp, settings.ciudad].filter(Boolean).join(" ");
+  const issuerAddress = [settings.direccion || "Dirección pendiente", cityLine].filter(Boolean).join(", ");
   const clientCountry = clientCountryEs(client);
   const serviceDate = invoice.serviceDate || invoice.issueDate;
+  const asset = (invoice.payment?.asset || settings.defaultAsset || "").trim() || "USDT";
   const cotejo =
     invoice.number && invoice.status !== "brouillon"
       ? aeatCotejoUrl({
@@ -34,224 +40,149 @@ export function InvoicePaper({
       : null;
 
   return (
-    <article className="print-sheet relative overflow-hidden bg-white text-[#1a1712] px-10 py-9 md:px-12 md:py-11 min-h-[1120px]">
-      <div aria-hidden className="absolute inset-y-0 left-0 w-[5px] bg-[#9c4a2b]" />
-
-      <header className="flex items-start justify-between gap-6 pl-3">
-        <div>
-          <p className="font-display text-[2.65rem] leading-[0.9] tracking-tight text-[#9c4a2b]">Factura</p>
-          <p className="mt-3 text-[10px] uppercase tracking-[0.22em] text-[#7a7164]">
-            Documento mercantil · EUR
-          </p>
-        </div>
-        <div className="flex items-start gap-5">
-          <div className="text-right space-y-2.5 min-w-[11rem]">
-            <Meta k="Nº de factura" v={number} large />
-            <Meta k="Fecha de emisión" v={formatDate(invoice.issueDate)} />
-            <Meta k="Fecha de prestación" v={formatDate(serviceDate)} />
-            {invoice.dueDate ? <Meta k="Vencimiento" v={formatDate(invoice.dueDate)} /> : null}
-          </div>
-          {cotejo ? (
-            <div className="flex flex-col items-center">
-              <div className="border border-[#1a1712] p-1 bg-white" style={{ width: "30mm", height: "30mm" }}>
-                <QRCodeSVG
-                  value={cotejo}
-                  size={113}
-                  level="M"
-                  includeMargin={false}
-                  style={{ width: "28mm", height: "28mm" }}
-                />
-              </div>
-              <p className="mt-1 text-[8px] uppercase tracking-[0.14em] text-[#7a7164]">Verificar en la AEAT</p>
-            </div>
-          ) : null}
+    <article
+      className="print-sheet relative bg-white text-black px-10 py-10 md:px-12 md:py-12 text-[12px] leading-snug"
+      style={{ fontFamily: "Helvetica, Arial, 'Liberation Sans', sans-serif" }}
+    >
+      <header className="relative">
+        <h1 className="text-center text-[28px] font-bold tracking-wide leading-none">FACTURA</h1>
+        <div className="absolute right-0 top-0 text-right text-[11px] leading-[1.4] tabular">
+          <p>{number}</p>
+          <p>Fecha de emisión: {formatDate(invoice.issueDate)}</p>
+          <p>Fecha de prestación: {formatDate(serviceDate)}</p>
         </div>
       </header>
 
-      <section className="mt-8 grid grid-cols-2 gap-10 border-y border-[#eadfcf] py-6 pl-3">
+      <section className="mt-16 grid grid-cols-2 border border-black">
         <Party
-          label="Emisor"
+          label="EMISOR"
           name={settings.nombre || "Emisor"}
-          lines={[
-            settings.nif ? `NIF/NIE ${settings.nif}` : null,
-            settings.direccion || "Dirección pendiente",
-            cityLine || null,
-            "España",
-            settings.email || null,
-            settings.activity || null,
-          ]}
+          lines={[settings.nif ? `NIF: ${settings.nif}` : null, issuerAddress, "España"]}
         />
         <Party
-          label="Cliente"
+          label="CLIENTE"
           name={client?.brand ?? "—"}
           lines={[
-            client?.taxId
-              ? `${client.horsUE === false ? "NIF" : "Tax ID"} ${client.taxId}`
-              : null,
             client?.address || null,
-            clientCountry ? `${clientCountry}${client?.horsUE ? " · fuera de la UE" : ""}` : null,
-            client?.email || null,
+            clientCountry || null,
+            client?.taxId ? `Tax Identification No.: ${client.taxId}` : null,
           ]}
+          divider
         />
       </section>
 
-      <section className="mt-7 pl-3">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#7a7164] mb-3">Concepto</p>
-        <table className="w-full text-[13px] border-collapse">
+      <section className="mt-10">
+        <table className="w-full border-collapse">
           <thead>
-            <tr className="bg-[#1a1712] text-[#fbf6ee]">
-              <th className="py-2.5 px-3 text-left font-medium tracking-wide">Descripción</th>
-              <th className="py-2.5 px-3 text-right font-medium w-[4.5rem]">Cant.</th>
-              <th className="py-2.5 px-3 text-right font-medium w-[7.5rem]">Precio</th>
-              <th className="py-2.5 px-3 text-right font-medium w-[7.5rem]">Total</th>
+            <tr className="border-b border-black">
+              <th className="pb-1.5 pr-3 text-left font-bold">Descripción del servicio</th>
+              <th className="pb-1.5 text-right font-bold w-[8rem]">Importe</th>
             </tr>
           </thead>
           <tbody>
             {invoice.items.map((it) => (
-              <tr key={it.id} className="border-b border-[#eadfcf] align-top">
-                <td className="py-3 pr-3 pl-3">{it.description || "—"}</td>
-                <td className="py-3 px-3 text-right tabular">{formatNum(it.quantity, "es")}</td>
-                <td className="py-3 px-3 text-right tabular">{formatEur(it.unitPriceEur, "es")}</td>
-                <td className="py-3 px-3 text-right tabular">{formatEur(it.quantity * it.unitPriceEur, "es")}</td>
+              <tr key={it.id} className="align-top">
+                <td className="pt-3 pr-3 whitespace-pre-line">
+                  {it.description || "—"}
+                  {it.quantity !== 1 ? (
+                    <span className="block text-[10px]">
+                      {formatNum(it.quantity, "es")} × {formatEur(it.unitPriceEur, "es")}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="pt-3 text-right tabular whitespace-nowrap">
+                  {formatEur(it.quantity * it.unitPriceEur, "es")}
+                </td>
               </tr>
             ))}
           </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={2} className="border-b border-black pt-3" />
+            </tr>
+          </tfoot>
         </table>
+
+        <dl className="mt-4 text-[12px]">
+          <Row k="Base imponible" v={formatEur(base, "es")} />
+          <Row k="IVA" v={formatEur(0, "es")} />
+          {invoice.irpfRate > 0 ? (
+            <Row k={`Retención IRPF (${formatNum(invoice.irpfRate, "es")} %)`} v={`− ${formatEur(irpf, "es")}`} />
+          ) : null}
+          <Row k="TOTAL" v={formatEur(total, "es")} bold />
+        </dl>
       </section>
 
-      <div className="mt-6 flex justify-end pl-3">
-        <dl className="w-full max-w-[17rem] text-[13px]">
-          <div className="flex justify-between gap-6 py-1">
-            <dt className="text-[#4a4338]">Base imponible</dt>
-            <dd className="tabular">{formatEur(base, "es")}</dd>
-          </div>
-          <div className="flex justify-between gap-6 py-1">
-            <dt className="text-[#4a4338]">IVA</dt>
-            <dd className="tabular">{formatEur(0, "es")}</dd>
-          </div>
-          {invoice.irpfRate > 0 ? (
-            <div className="flex justify-between gap-6 py-1">
-              <dt className="text-[#4a4338]">Retención IRPF ({formatNum(invoice.irpfRate, "es")} %)</dt>
-              <dd className="tabular">− {formatEur(irpf, "es")}</dd>
-            </div>
-          ) : null}
-          <div className="mt-2 flex justify-between items-baseline gap-6 bg-[#1a1712] text-[#fbf6ee] px-3 py-2.5">
-            <dt className="text-[10px] uppercase tracking-[0.16em]">Total</dt>
-            <dd className="font-display text-2xl tabular leading-none">{formatEur(total, "es")}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <section className="mt-8 ml-3 border-l-[3px] border-[#9c4a2b] bg-[#fbf6ee] px-4 py-3 text-[11px] leading-relaxed">
+      <section className="mt-8 space-y-2 text-[10px] leading-relaxed">
         {client?.horsUE !== false ? (
-          <>
-            <p className="font-medium text-[12px]">IVA — operación no sujeta</p>
-            <p className="mt-1">{IVA_NOSUJETA}</p>
-            <p className="mt-1 text-[#4a4338]">
-              Prestación de servicios a empresario o profesional establecido fuera de la Unión Europea.
-              Lugar de realización: donde está establecido el destinatario.
-            </p>
-          </>
+          <p>
+            IVA: Operación no sujeta al IVA español conforme al artículo 69.Uno.1º de la Ley 37/1992 del
+            IVA, por tratarse de una prestación de servicios a un empresario o profesional establecido
+            fuera del territorio de aplicación del IVA español.
+          </p>
         ) : (
           <p>
-            Cliente establecido en la UE: el tratamiento del IVA no se calcula automáticamente en esta
-            versión (verificar: autoliquidación / ROI). Importe IVA mostrado: 0 EUR.
+            IVA: cliente establecido en la UE; el tratamiento del IVA no se calcula automáticamente
+            (verificar: autoliquidación / ROI). Importe IVA mostrado: {formatEur(0, "es")}.
           </p>
         )}
         {invoice.irpfRate === 0 ? (
-          <p className="mt-2 text-[#4a4338]">Retención IRPF: 0 % (cliente no establecido en España, por defecto).</p>
-        ) : null}
-      </section>
-
-      <section className="mt-7 pl-3">
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[#7a7164]">Forma de pago</p>
-        {invoice.payment ? (
-          <>
-            <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-[13px] sm:grid-cols-4">
-              <PayCell k="Medio de pago" v="Criptomoneda" />
-              <PayCell
-                k="Criptomoneda"
-                v={`${invoice.payment.asset || "—"}${invoice.payment.network ? ` · ${netEs(invoice.payment.network)}` : ""}`}
-              />
-              <PayCell k="Valor de la operación" v={formatEur(invoice.payment.eurEquivalent, "es")} />
-              <PayCell
-                k="Fecha de pago"
-                v={invoice.cobroDate ? formatDate(invoice.cobroDate) : "—"}
-              />
-            </div>
-            <p className="mt-3 text-[11px] text-[#4a4338]">
-              Conversión a EUR: realizada inmediatamente después de la recepción.
-            </p>
-            <p className="mt-1 text-[11px] text-[#4a4338]">
-              {invoice.payment.amount} {invoice.payment.asset} = {formatEur(invoice.payment.eurEquivalent, "es")}{" "}
-              · tipo 1 {invoice.payment.asset} = {formatEur(invoice.payment.rate, "es")} ·{" "}
-              {formatDate(invoice.payment.rateDate)} · {invoice.payment.rateSource || "manual"}
-            </p>
-            {invoice.payment.walletAddress ? (
-              <p className="mt-1 text-[10px] break-all text-[#7a7164]">Cartera: {invoice.payment.walletAddress}</p>
-            ) : null}
-            {invoice.payment.txHash ? (
-              <p className="text-[10px] break-all text-[#7a7164]">Tx: {invoice.payment.txHash}</p>
-            ) : null}
-          </>
-        ) : (
-          <>
-            <div className="mt-3 grid grid-cols-2 gap-x-8 gap-y-3 text-[13px] sm:grid-cols-4">
-              <PayCell k="Medio de pago" v="Criptomoneda" />
-              <PayCell k="Criptomoneda" v={settings.defaultAsset?.trim() || "USDT"} />
-              <PayCell k="Valor de la operación" v={formatEur(total, "es")} />
-              <PayCell k="Fecha de pago" v="Pendiente" />
-            </div>
-            <p className="mt-3 text-[11px] text-[#4a4338]">
-              Conversión a EUR: realizada inmediatamente después de la recepción.
-            </p>
-            {settings.wallets[0]?.address ? (
-              <p className="mt-1 text-[10px] break-all text-[#7a7164]">
-                Dirección {settings.wallets[0].asset} {netEs(settings.wallets[0].network)}: {settings.wallets[0].address}
-              </p>
-            ) : null}
-          </>
-        )}
-      </section>
-
-      {invoice.notes ? (
-        <p className="mt-6 pl-3 text-[12px] text-[#4a4338]">Notas: {invoice.notes}</p>
-      ) : null}
-
-      <footer className="mt-10 pt-4 ml-3 border-t border-[#eadfcf] text-[9px] leading-relaxed text-[#7a7164]">
-        <p>
-          Documento emitido en una serie secuencial ({settings.seriesPrefix}…): los números atribuidos
-          no se reutilizan. Factura en EUR. Herramienta de gestión — no constituye un depósito AEAT /
-          Verifactu. El QR tributario permite cotejar estos datos en la sede de la AEAT; este programa
-          no remite el registro de facturación.
-        </p>
-        {invoice.huella ? (
-          <p className="mt-1 break-all">
-            Huella interna (SHA-256 local, no es la huella AEAT): {invoice.huella}
+          <p>
+            Retención IRPF: {formatEur(0, "es")} — sin retención de IRPF al no estar el pagador establecido en
+            España, sujeto a la correcta condición del pagador.
           </p>
         ) : null}
-      </footer>
+        <p>Forma de pago: Activos digitales ({asset}).</p>
+        <p>
+          Valoración: los {asset} recibidos se registrarán en euros según su valor de mercado en la fecha
+          y hora de recepción. Valor de referencia de esta factura: {formatEur(total, "es")}.
+        </p>
+        {invoice.notes ? <p className="whitespace-pre-line">{invoice.notes}</p> : null}
+      </section>
+
+      {cotejo ? (
+        <div className="mt-8 flex items-end gap-2">
+          <div className="border border-black p-0.5 bg-white" style={{ width: "20mm", height: "20mm" }}>
+            <QRCodeSVG
+              value={cotejo}
+              size={76}
+              level="M"
+              includeMargin={false}
+              style={{ width: "100%", height: "100%" }}
+            />
+          </div>
+          <p className="text-[8px]">Cotejar en la AEAT</p>
+        </div>
+      ) : null}
     </article>
   );
 }
 
-function Meta({ k, v, large }: { k: string; v: string; large?: boolean }) {
+function Row({ k, v, bold }: { k: string; v: string; bold?: boolean }) {
   return (
-    <div>
-      <p className="text-[9px] uppercase tracking-[0.16em] text-[#7a7164]">{k}</p>
-      <p className={large ? "mt-0.5 font-display text-[1.35rem] tabular leading-tight" : "mt-0.5 tabular"}>
-        {v}
-      </p>
+    <div className={`flex justify-between gap-6 py-0.5 ${bold ? "font-bold text-[13px]" : ""}`}>
+      <dt>{k}</dt>
+      <dd className="tabular">{v}</dd>
     </div>
   );
 }
 
-function Party({ label, name, lines }: { label: string; name: string; lines: (string | null)[] }) {
+function Party({
+  label,
+  name,
+  lines,
+  divider,
+}: {
+  label: string;
+  name: string;
+  lines: (string | null)[];
+  divider?: boolean;
+}) {
   return (
-    <div>
-      <p className="text-[10px] uppercase tracking-[0.18em] text-[#7a7164]">{label}</p>
-      <p className="mt-1.5 font-display text-xl leading-tight">{name}</p>
-      <p className="mt-1.5 text-[12px] leading-relaxed text-[#4a4338]">
+    <div className={`px-3 py-3 ${divider ? "border-l border-black" : ""}`}>
+      <p className="font-bold">{label}</p>
+      <p className="mt-2 font-bold">{name}</p>
+      <p className="mt-0.5 leading-relaxed">
         {lines.filter(Boolean).map((line, i) => (
           <span key={`${i}-${line}`}>
             {i > 0 ? <br /> : null}
@@ -261,18 +192,4 @@ function Party({ label, name, lines }: { label: string; name: string; lines: (st
       </p>
     </div>
   );
-}
-
-function PayCell({ k, v }: { k: string; v: string }) {
-  return (
-    <div>
-      <p className="text-[9px] uppercase tracking-[0.14em] text-[#7a7164]">{k}</p>
-      <p className="mt-0.5 tabular break-words">{v}</p>
-    </div>
-  );
-}
-
-/** Libellé réseau pour la factura en espagnol (« Autre » est la valeur interne pour « autre réseau »). */
-function netEs(n: string): string {
-  return n === "Autre" ? "otra red" : n;
 }
