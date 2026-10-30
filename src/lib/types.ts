@@ -33,6 +33,7 @@ export type Client = {
   countryCode: string;
   address: string;
   taxId: string;
+  companyRegNo?: string;
   email: string;
   notes: string;
   horsUE: boolean;

@@ -27,6 +27,7 @@ export function ClientForm({ existing }: { existing?: Client }) {
   );
   const [address, setAddress] = useState(existing?.address ?? "");
   const [taxId, setTaxId] = useState(existing?.taxId ?? "");
+  const [companyRegNo, setCompanyRegNo] = useState(existing?.companyRegNo ?? "");
   const [email, setEmail] = useState(existing?.email ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [horsUE, setHorsUE] = useState(existing?.horsUE ?? def.horsUE);
@@ -59,6 +60,7 @@ export function ClientForm({ existing }: { existing?: Client }) {
       countryCode: resolved?.code ?? "",
       address: address.trim(),
       taxId: taxId.trim(),
+      companyRegNo: companyRegNo.trim(),
       email: email.trim(),
       notes: notes.trim(),
       horsUE,
@@ -114,6 +116,9 @@ export function ClientForm({ existing }: { existing?: Client }) {
       </label>
       <Field label={t.clients.taxId} optional hint={t.clients.taxIdHint}>
         <Input value={taxId} onChange={(e) => setTaxId(e.target.value)} />
+      </Field>
+      <Field label={t.clients.companyRegNo}>
+        <Input value={companyRegNo} onChange={(e) => setCompanyRegNo(e.target.value)} />
       </Field>
       <Field label={t.onboarding.email} optional>
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />

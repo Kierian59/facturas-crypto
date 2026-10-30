@@ -74,6 +74,7 @@ function clientFromRow(row: {
   countryCode: string;
   address: string;
   taxId: string;
+  companyRegNo: string | null;
   email: string;
   notes: string;
   horsUE: boolean;
@@ -86,6 +87,7 @@ function clientFromRow(row: {
     countryCode: row.countryCode,
     address: row.address,
     taxId: row.taxId,
+    companyRegNo: row.companyRegNo ?? "",
     email: row.email,
     notes: row.notes,
     horsUE: row.horsUE,
@@ -208,6 +210,7 @@ export async function saveUserDatabase(userId: string, db: Database): Promise<Da
           countryCode: c.countryCode,
           address: c.address,
           taxId: c.taxId,
+          companyRegNo: c.companyRegNo?.trim() || null,
           email: c.email,
           notes: c.notes,
           horsUE: c.horsUE,

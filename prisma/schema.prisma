@@ -36,6 +36,7 @@ model Client {
   countryCode String  @default("")
   address     String  @default("")
   taxId       String  @default("")
+  companyRegNo String?
   email       String  @default("")
   notes       String  @default("")
   horsUE      Boolean @default(true)

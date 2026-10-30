@@ -65,6 +65,7 @@ export function InvoicePaper({
           lines={[
             client?.address || null,
             clientCountry || null,
+            client?.companyRegNo?.trim() ? `Company Registration No.: ${client.companyRegNo.trim()}` : null,
             client?.taxId ? `Tax Identification No.: ${client.taxId}` : null,
           ]}
           divider

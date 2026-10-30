@@ -16,6 +16,7 @@ function migrateClient(raw: unknown): Client | null {
     countryCode: typeof raw.countryCode === "string" ? raw.countryCode : "",
     address: typeof raw.address === "string" ? raw.address : "",
     taxId: typeof raw.taxId === "string" ? raw.taxId : "",
+    companyRegNo: typeof raw.companyRegNo === "string" ? raw.companyRegNo : "",
     email: typeof raw.email === "string" ? raw.email : "",
     notes: typeof raw.notes === "string" ? raw.notes : "",
     horsUE: Boolean(raw.horsUE),
