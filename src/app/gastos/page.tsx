@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStore, useT } from "@/lib/store";
 import { Button, Disclaimer, Empty, Field, Input, PageTitle, Select, Textarea } from "@/components/ui";
 import { formatDate, formatEur, isoDate, round2, uid } from "@/lib/format";
@@ -12,6 +12,44 @@ import { PROOF_ACCEPT, deleteProofFile, fileUrl, uploadProofFile } from "@/lib/p
 import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type IvaRate } from "@/lib/types";
 
 type Q = 0 | 1 | 2 | 3 | 4;
+
+type Extracted = {
+  fecha: string | null; proveedor: string | null; nifProveedor: string | null; numeroFactura: string | null;
+  concepto: string | null; categoria: ExpenseCategory | null; base: number | null; tipoIva: IvaRate | null;
+  cuotaIva: number | null; total: number | null;
+};
+type Draft = {
+  key: string;
+  name: string;
+  status: "processing" | "ready" | "error";
+  expense?: Expense;
+  notice?: "auto" | "manual";
+  warnings?: string[];
+  error?: string;
+};
+
+function draftFrom(id: string, today: string, file: Expense["file"], x: Extracted | null): Expense {
+  const e = emptyExpense(id, today);
+  if (!x) return { ...e, date: "", category: "otros", file };
+  const category = x.categoria ?? "otros";
+  const zero = x.tipoIva === "0" || x.tipoIva === "exento";
+  return {
+    ...e,
+    date: x.fecha ?? "",
+    supplier: x.proveedor ?? "",
+    supplierNif: x.nifProveedor ?? "",
+    invoiceNo: x.numeroFactura ?? "",
+    concept: x.concepto ?? "",
+    category,
+    affectPct: DEFAULT_AFFECT[category] ?? 100,
+    base: x.base ?? 0,
+    ivaRate: x.tipoIva ?? e.ivaRate,
+    ivaAmount: x.cuotaIva ?? 0,
+    total: x.total ?? 0,
+    ivaDeductible: !zero && !!x.nifProveedor,
+    file,
+  };
+}
 
 function parseNum(v: string): number {
   const n = Number(v.replace(/\s/g, "").replace(",", "."));
@@ -27,6 +65,68 @@ export default function GastosPage() {
   const [year, setYear] = useState(Number(today.slice(0, 4)));
   const [q, setQ] = useState<Q>((Math.floor((Number(today.slice(5, 7)) - 1) / 3) + 1) as Q);
   const [editing, setEditing] = useState<Expense | null>(null);
+  const [drafts, setDrafts] = useState<Draft[]>([]);
+  const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const pickInput = useRef<HTMLInputElement>(null);
+  const camInput = useRef<HTMLInputElement>(null);
+  const chain = useRef<Promise<void>>(Promise.resolve());
+
+  const patchDraft = useCallback((key: string, p: Partial<Draft>) => {
+    setDrafts((ds) => ds.map((d) => (d.key === key ? { ...d, ...p } : d)));
+  }, []);
+
+  function addFiles(files: FileList | File[]) {
+    for (const file of Array.from(files)) {
+      const key = uid("drf");
+      setDrafts((ds) => [...ds, { key, name: file.name, status: "processing" }]);
+      // Traitement séquentiel (évite de saturer l'upload / l'IA)
+      chain.current = chain.current.then(async () => {
+        const id = uid("exp");
+        const up = await uploadProofFile(id, file);
+        if (!up.ok) {
+          patchDraft(key, {
+            status: "error",
+            error: up.error === "tooBig" ? te.uploadTooBig : up.error === "type" ? te.uploadType : te.uploadFailed,
+          });
+          return;
+        }
+        let x: Extracted | null = null;
+        let warnings: string[] = [];
+        try {
+          const res = await fetch("/api/gastos/extract", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ fileId: up.ref.id }),
+          });
+          const j = res.ok ? await res.json() : null;
+          if (j?.ok) {
+            x = j.fields as Extracted;
+            warnings = j.warnings ?? [];
+          }
+        } catch {
+          /* repli manuel */
+        }
+        patchDraft(key, { status: "ready", expense: draftFrom(id, today, up.ref, x), notice: x ? "auto" : "manual", warnings });
+      });
+    }
+  }
+
+  // Ouvre automatiquement le prochain brouillon prêt
+  useEffect(() => {
+    if (editing) return;
+    const next = drafts.find((d) => d.status === "ready");
+    if (next?.expense) {
+      setEditingDraft(next);
+      setEditing(next.expense);
+    }
+  }, [drafts, editing]);
+
+  function closeEditor() {
+    if (editingDraft) setDrafts((ds) => ds.filter((d) => d.key !== editingDraft.key));
+    setEditingDraft(null);
+    setEditing(null);
+  }
 
   const years = useMemo(() => {
     const s = new Set<number>([Number(today.slice(0, 4))]);
@@ -76,20 +176,80 @@ export default function GastosPage() {
         kicker={te.kicker}
         title={te.title}
         action={
-          <Button onClick={() => setEditing(emptyExpense(uid("exp"), today))}>{te.add}</Button>
+          <Button onClick={() => { setEditingDraft(null); setEditing(emptyExpense(uid("exp"), today)); }}>{te.add}</Button>
         }
       />
       <p className="mb-5 text-sm text-ink-soft">{te.intro}</p>
+
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => pickInput.current?.click()}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") pickInput.current?.click(); }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+        }}
+        className={`mb-6 cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition ${
+          dragOver ? "border-olive bg-olive/10" : "border-line hover:border-olive"
+        }`}
+      >
+        <p className="font-display text-xl">{te.dropTitle}</p>
+        <p className="mt-1 text-sm text-muted">{te.dropBody}</p>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <Button type="button" onClick={(e) => { e.stopPropagation(); pickInput.current?.click(); }}>{te.dropPick}</Button>
+          <Button type="button" variant="ghost" className="sm:hidden" onClick={(e) => { e.stopPropagation(); camInput.current?.click(); }}>
+            {te.dropCamera}
+          </Button>
+        </div>
+        <p className="mt-2 text-xs text-muted">{te.dropHint}</p>
+        <input ref={pickInput} type="file" multiple accept={PROOF_ACCEPT} className="hidden"
+          onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ""; }} />
+        <input ref={camInput} type="file" accept="image/*" capture="environment" className="hidden"
+          onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ""; }} />
+      </div>
+
+      {drafts.length > 0 ? (
+        <ul className="paper-card mb-6 divide-y divide-line rounded-2xl text-sm">
+          {drafts.map((dr) => (
+            <li key={dr.key} className="flex flex-wrap items-center gap-3 px-4 py-2">
+              <span className="min-w-0 flex-1 truncate">{dr.name}</span>
+              {dr.status === "processing" ? <span className="text-xs text-muted">{te.dropProcessing}</span> : null}
+              {dr.status === "ready" ? (
+                editingDraft?.key === dr.key ? (
+                  <span className="text-xs text-olive">{te.dropReviewing}</span>
+                ) : (
+                  <span className="text-xs text-muted">{te.dropQueued}</span>
+                )
+              ) : null}
+              {dr.status === "error" ? (
+                <>
+                  <span className="text-xs text-danger">{dr.error}</span>
+                  <button type="button" className="text-xs underline" onClick={() => setDrafts((ds) => ds.filter((d) => d.key !== dr.key))}>
+                    OK
+                  </button>
+                </>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
 
       {editing ? (
         <ExpenseForm
           key={editing.id}
           initial={editing}
           isNew={!expenses.some((x) => x.id === editing.id)}
-          onCancel={() => setEditing(null)}
+          notice={editingDraft?.notice}
+          warnings={editingDraft?.warnings}
+          ownsInitialFile={!!editingDraft}
+          onCancel={closeEditor}
           onSave={(e) => {
             upsertExpense(e);
-            setEditing(null);
+            closeEditor();
             if (e.date) {
               setYear(Number(e.date.slice(0, 4)));
               if (q !== 0) setQ((Math.floor((Number(e.date.slice(5, 7)) - 1) / 3) + 1) as Q);
@@ -141,7 +301,7 @@ export default function GastosPage() {
           <ul className="paper-card divide-y divide-line rounded-2xl">
             {list.map((e) => (
               <li key={e.id} className="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEditing(e)}>
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => { setEditingDraft(null); setEditing(e); }}>
                   <p className="font-medium">
                     {e.supplier || "—"}
                     {e.invoiceNo ? <span className="text-muted"> · {e.invoiceNo}</span> : null}
@@ -188,10 +348,13 @@ function Stat({ label, value, hint }: { label: string; value: string; hint: stri
 }
 
 function ExpenseForm({
-  initial, isNew, onCancel, onSave, onDelete,
+  initial, isNew, onCancel, onSave, onDelete, notice, warnings, ownsInitialFile,
 }: {
   initial: Expense;
   isNew: boolean;
+  notice?: "auto" | "manual";
+  warnings?: string[];
+  ownsInitialFile?: boolean;
   onCancel: () => void;
   onSave: (e: Expense) => void;
   onDelete: (e: Expense) => void;
@@ -268,6 +431,10 @@ function ExpenseForm({
   return (
     <section className="paper-card mb-6 rounded-2xl p-5">
       <h2 className="font-display text-xl">{isNew ? te.newTitle : te.edit}</h2>
+      {notice === "auto" ? <p className="mt-2 rounded-lg bg-olive/10 p-2 text-sm">{te.autoFilled}</p> : null}
+      {notice === "manual" ? <p className="mt-2 rounded-lg bg-danger/10 p-2 text-sm">{te.autoUnavailable}</p> : null}
+      {warnings?.includes("amounts") ? <p className="mt-2 text-sm text-danger">{te.autoAmounts}</p> : null}
+      {warnings?.includes("currency") ? <p className="mt-2 text-sm text-danger">{te.autoCurrency}</p> : null}
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label={te.date} required>
           <Input type="date" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} />
@@ -392,7 +559,11 @@ function ExpenseForm({
       {err ? <p className="mt-3 text-sm text-danger">{err}</p> : null}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button onClick={save} disabled={busy}>{te.save}</Button>
-        <Button variant="ghost" onClick={() => { cleanupUnsaved(initial.file?.id ?? null); onCancel(); }}>{te.cancel}</Button>
+        <Button variant="ghost" onClick={() => {
+          cleanupUnsaved(initial.file?.id ?? null);
+          if (ownsInitialFile && initial.file) void deleteProofFile(initial.file.id);
+          onCancel();
+        }}>{te.cancel}</Button>
         {!isNew ? (
           <Button variant="danger" className="ml-auto" onClick={() => onDelete(initial)}>{te.delete}</Button>
         ) : null}

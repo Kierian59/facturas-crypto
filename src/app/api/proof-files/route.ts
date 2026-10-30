@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { PROOF_MAX_BYTES } from "@/lib/proof";
+import { maxProofBytes } from "@/lib/proof";
 
 export const runtime = "nodejs";
 
@@ -37,11 +37,12 @@ export async function POST(req: Request) {
   if (typeof invoiceId !== "string" || !invoiceId || invoiceId.length > 100 || typeof data !== "string" || typeof mime !== "string") {
     return NextResponse.json({ error: "Payload invalide" }, { status: 400 });
   }
-  if (data.length > Math.ceil((PROOF_MAX_BYTES * 4) / 3) + 8) {
+  const maxBytes = maxProofBytes(invoiceId, mime);
+  if (data.length > Math.ceil((maxBytes * 4) / 3) + 8) {
     return NextResponse.json({ error: "Fichier trop volumineux" }, { status: 413 });
   }
   const buf = Buffer.from(data, "base64");
-  if (buf.length === 0 || buf.length > PROOF_MAX_BYTES) {
+  if (buf.length === 0 || buf.length > maxBytes) {
     return NextResponse.json({ error: "Fichier trop volumineux" }, { status: 413 });
   }
   if (!magicOk(mime, buf)) {

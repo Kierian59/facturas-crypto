@@ -2,6 +2,11 @@ import type { CryptoProof, Invoice, ProofFileRef } from "./types";
 
 /** Taille max d'une pièce jointe (après compression pour les images). */
 export const PROOF_MAX_BYTES = 1_000_000;
+/** PDF de facture de dépense (id « exp… ») : jusqu'à 3 Mo (base64 ≈ 4 Mo < limite Vercel 4,5 Mo). */
+export const EXPENSE_PDF_MAX_BYTES = 3_000_000;
+export function maxProofBytes(ownerId: string, mime: string): number {
+  return ownerId.startsWith("exp") && mime === "application/pdf" ? EXPENSE_PDF_MAX_BYTES : PROOF_MAX_BYTES;
+}
 export const PROOF_ACCEPT = "image/jpeg,image/png,image/webp,application/pdf";
 
 export function emptyProof(inv?: Invoice): CryptoProof {
@@ -173,7 +178,7 @@ export async function uploadProofFile(invoiceId: string, file: File): Promise<Up
     mime = "image/jpeg";
     name = name.replace(/\.[a-z0-9]+$/i, "") + ".jpg";
   }
-  if (blob.size > PROOF_MAX_BYTES) return { ok: false, error: "tooBig" };
+  if (blob.size > maxProofBytes(invoiceId, mime)) return { ok: false, error: "tooBig" };
   try {
     const res = await fetch("/api/proof-files", {
       method: "POST",
