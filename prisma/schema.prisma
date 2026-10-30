@@ -102,6 +102,9 @@ model Expense {
   total         Float   @default(0)
   affectPct     Float   @default(100)
   ivaDeductible Boolean @default(true)
+  inversionSujetoPasivo Boolean @default(false)
+  paisProveedor String  @default("ES")
+  rcRate        Float   @default(21)
   file          Json?
   notes         String  @default("")
   createdAt     String  @default("")

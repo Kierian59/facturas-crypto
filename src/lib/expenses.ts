@@ -12,17 +12,66 @@ export function calcIva(base: number, rate: IvaRate): number {
   return round2(base * (ivaPct(rate) / 100));
 }
 
-/** Gasto deducible IRPF = base imponible × % afectación. (Si l'IVA n'est pas déductible, il devient un coût : on l'ajoute.) */
+const affect = (e: Expense) => Math.min(100, Math.max(0, e.affectPct)) / 100;
+
+export function isReverseCharge(e: Expense): boolean {
+  return !!e.inversionSujetoPasivo;
+}
+
+/** IVA autoliquidado (devengado) por inversión del sujeto pasivo = base × tipo (21 % por defecto). */
+export function rcIvaDevengado(e: Expense): number {
+  if (!isReverseCharge(e)) return 0;
+  const rate = typeof e.rcRate === "number" && Number.isFinite(e.rcRate) ? e.rcRate : 21;
+  return round2(e.base * (rate / 100));
+}
+
+/** IVA soportado deducible de la autoliquidación = devengado × % afectación (si deducible). */
+export function rcIvaDeducible(e: Expense): number {
+  if (!isReverseCharge(e) || !e.ivaDeductible) return 0;
+  return round2(rcIvaDevengado(e) * affect(e));
+}
+
+/** Gasto deducible IRPF = base imponible × % afectación. (Si l'IVA n'est pas déductible, il devient un coût : on l'ajoute.)
+ *  Inversión del sujeto pasivo : base seule (l'IVA autoliquidé se compense) ; la part non déductible devient un coût. */
 export function deductibleExpense(e: Expense): number {
-  const pct = Math.min(100, Math.max(0, e.affectPct)) / 100;
+  if (isReverseCharge(e)) {
+    const nonDed = round2(rcIvaDevengado(e) - rcIvaDeducible(e));
+    return round2(e.base * affect(e) + nonDed);
+  }
   const nonDeductibleIva = e.ivaDeductible ? 0 : e.ivaAmount;
-  return round2((e.base + nonDeductibleIva) * pct);
+  return round2((e.base + nonDeductibleIva) * affect(e));
 }
 
 /** IVA soportado deducible = cuota IVA × % afectación (si el toggle está activo). */
 export function deductibleIva(e: Expense): number {
+  if (isReverseCharge(e)) return rcIvaDeducible(e);
   if (!e.ivaDeductible) return 0;
-  return round2(e.ivaAmount * (Math.min(100, Math.max(0, e.affectPct)) / 100));
+  return round2(e.ivaAmount * affect(e));
+}
+
+export type ReverseChargeSummary = {
+  ueBase: number; ueDevengado: number; ueDeducible: number;
+  noUeBase: number; noUeDevengado: number; noUeDeducible: number;
+  needs349: boolean;
+};
+
+/** Agrège les autoliquidaciones : UE (adquisiciones intracomunitarias de servicios) vs fuera UE (art. 84.Uno.2º LIVA). */
+export function reverseChargeSummary(list: Expense[]): ReverseChargeSummary {
+  const r: ReverseChargeSummary = { ueBase: 0, ueDevengado: 0, ueDeducible: 0, noUeBase: 0, noUeDevengado: 0, noUeDeducible: 0, needs349: false };
+  for (const e of list) {
+    if (!isReverseCharge(e)) continue;
+    if (e.paisProveedor === "UE") {
+      r.ueBase = round2(r.ueBase + e.base);
+      r.ueDevengado = round2(r.ueDevengado + rcIvaDevengado(e));
+      r.ueDeducible = round2(r.ueDeducible + rcIvaDeducible(e));
+      r.needs349 = true;
+    } else {
+      r.noUeBase = round2(r.noUeBase + e.base);
+      r.noUeDevengado = round2(r.noUeDevengado + rcIvaDevengado(e));
+      r.noUeDeducible = round2(r.noUeDeducible + rcIvaDeducible(e));
+    }
+  }
+  return r;
 }
 
 export function inQuarter(e: Expense, q: Quarter): boolean {
@@ -45,7 +94,8 @@ export function sumExpenses(list: Expense[]): { base: number; deductible: number
 export function emptyExpense(id: string, today: string): Expense {
   return {
     id, date: today, supplier: "", supplierNif: "", invoiceNo: "", concept: "", category: "software",
-    base: 0, ivaRate: "21", ivaAmount: 0, total: 0, affectPct: 100, ivaDeductible: true, file: null,
+    base: 0, ivaRate: "21", ivaAmount: 0, total: 0, affectPct: 100, ivaDeductible: true,
+    inversionSujetoPasivo: false, paisProveedor: "ES", rcRate: 21, file: null,
     notes: "", createdAt: today, updatedAt: today,
   };
 }
@@ -98,12 +148,15 @@ export function expensesCsv(list: Expense[], categoryLabel: (c: ExpenseCategory)
   const head = [
     "Fecha", "Proveedor", "NIF proveedor", "Nº factura", "Concepto", "Categoría", "Base imponible",
     "Tipo IVA", "Cuota IVA", "Total", "% afectación", "IVA deducible", "Gasto deducible", "IVA soportado deducible",
+    "Inversión sujeto pasivo", "Origen proveedor", "Tipo autoliquidación", "IVA autoliquidado (devengado)",
     "Adjunto", "Notas",
   ];
   const rows = list.map((e) => [
     e.date, e.supplier, e.supplierNif, e.invoiceNo, e.concept, categoryLabel(e.category), e.base,
     e.ivaRate === "exento" ? "exento" : `${e.ivaRate}%`, e.ivaAmount, e.total, String(e.affectPct),
-    e.ivaDeductible ? "sí" : "no", deductibleExpense(e), deductibleIva(e), e.file ? e.file.name : "", e.notes,
+    e.ivaDeductible ? "sí" : "no", deductibleExpense(e), deductibleIva(e),
+    isReverseCharge(e) ? "sí" : "no", e.paisProveedor === "UE" ? "UE" : e.paisProveedor === "NOUE" ? "fuera UE" : "ES",
+    isReverseCharge(e) ? `${e.rcRate ?? 21}%` : "", isReverseCharge(e) ? rcIvaDevengado(e) : 0, e.file ? e.file.name : "", e.notes,
   ]);
   return "\ufeff" + [head, ...rows].map((r) => r.map(csvCell).join(";")).join("\r\n") + "\r\n";
 }

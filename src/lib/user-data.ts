@@ -140,13 +140,14 @@ function invoiceFromRow(row: {
 function expenseFromRow(row: {
   id: string; date: string; supplier: string; supplierNif: string; invoiceNo: string; concept: string;
   category: string; base: number; ivaRate: string; ivaAmount: number; total: number; affectPct: number;
-  ivaDeductible: boolean; file: unknown; notes: string; createdAt: string; updatedAt: string;
+  ivaDeductible: boolean; inversionSujetoPasivo: boolean; paisProveedor: string; rcRate: number; file: unknown; notes: string; createdAt: string; updatedAt: string;
 }): Expense {
   const f = row.file as ProofFileRef | null;
   return {
     ...row,
     category: row.category as ExpenseCategory,
     ivaRate: row.ivaRate as IvaRate,
+    paisProveedor: (["ES", "UE", "NOUE"].includes(row.paisProveedor) ? row.paisProveedor : "ES") as Expense["paisProveedor"],
     file: f && typeof f === "object" && typeof f.id === "string" ? f : null,
   };
 }
@@ -295,6 +296,9 @@ export async function saveUserDatabase(userId: string, db: Database): Promise<Da
             total: num(e.total),
             affectPct: Math.min(100, Math.max(0, num(e.affectPct, 100))),
             ivaDeductible: Boolean(e.ivaDeductible),
+            inversionSujetoPasivo: Boolean(e.inversionSujetoPasivo),
+            paisProveedor: ["ES", "UE", "NOUE"].includes(String(e.paisProveedor)) ? String(e.paisProveedor) : "ES",
+            rcRate: Math.min(100, Math.max(0, num(e.rcRate, 21))),
             file: (e.file ?? undefined) as unknown as Prisma.InputJsonValue | undefined,
             notes: str(e.notes, 2000),
             createdAt: str(e.createdAt, 40),

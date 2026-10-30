@@ -6,10 +6,10 @@ import { Button, Disclaimer, Empty, Field, Input, PageTitle, Select, Textarea } 
 import { formatDate, formatEur, isoDate, round2, uid } from "@/lib/format";
 import { quarterByIndex } from "@/lib/tax";
 import {
-  DEFAULT_AFFECT, IVA_RATES, calcIva, deductibleExpense, deductibleIva, emptyExpense, expensesCsv, sumExpenses,
+  DEFAULT_AFFECT, IVA_RATES, calcIva, deductibleExpense, deductibleIva, emptyExpense, rcIvaDeducible, rcIvaDevengado, expensesCsv, sumExpenses,
 } from "@/lib/expenses";
 import { PROOF_ACCEPT, deleteProofFile, fileUrl, uploadProofFile } from "@/lib/proof";
-import { EXPENSE_CATEGORIES, type Expense, type ExpenseCategory, type IvaRate } from "@/lib/types";
+import { EXPENSE_CATEGORIES, SUPPLIER_ORIGINS, type Expense, type ExpenseCategory, type IvaRate, type SupplierOrigin } from "@/lib/types";
 
 type Q = 0 | 1 | 2 | 3 | 4;
 
@@ -17,6 +17,7 @@ type Extracted = {
   fecha: string | null; proveedor: string | null; nifProveedor: string | null; numeroFactura: string | null;
   concepto: string | null; categoria: ExpenseCategory | null; base: number | null; tipoIva: IvaRate | null;
   cuotaIva: number | null; total: number | null;
+  paisProveedor?: string | null; origen?: SupplierOrigin | null; inversionSujetoPasivo?: boolean;
 };
 type Draft = {
   key: string;
@@ -46,7 +47,9 @@ function draftFrom(id: string, today: string, file: Expense["file"], x: Extracte
     ivaRate: x.tipoIva ?? e.ivaRate,
     ivaAmount: x.cuotaIva ?? 0,
     total: x.total ?? 0,
-    ivaDeductible: !zero && !!x.nifProveedor,
+    ivaDeductible: x.inversionSujetoPasivo ? true : !zero && !!x.nifProveedor,
+    inversionSujetoPasivo: !!x.inversionSujetoPasivo,
+    paisProveedor: x.origen ?? "ES",
     file,
   };
 }
@@ -68,6 +71,12 @@ export default function GastosPage() {
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [editingDraft, setEditingDraft] = useState<Draft | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [toast, setToast] = useState("");
+  useEffect(() => {
+    if (!toast) return;
+    const h = setTimeout(() => setToast(""), 2500);
+    return () => clearTimeout(h);
+  }, [toast]);
   const pickInput = useRef<HTMLInputElement>(null);
   const camInput = useRef<HTMLInputElement>(null);
   const chain = useRef<Promise<void>>(Promise.resolve());
@@ -107,7 +116,19 @@ export default function GastosPage() {
         } catch {
           /* repli manuel */
         }
-        patchDraft(key, { status: "ready", expense: draftFrom(id, today, up.ref, x), notice: x ? "auto" : "manual", warnings });
+        // Stockage direct : aucun champ obligatoire, on enregistre tout de suite (formulaire optionnel ensuite).
+        let exp: Expense;
+        try {
+          exp = draftFrom(id, today, up.ref, x);
+        } catch {
+          exp = { ...emptyExpense(id, today), category: "otros", file: up.ref };
+        }
+        if (!exp.date) exp.date = today;
+        if (!exp.supplier.trim()) exp.supplier = file.name.replace(/\.[^.]+$/, "") || file.name;
+        upsertExpense(exp);
+        void warnings;
+        setDrafts((ds) => ds.filter((d) => d.key !== key));
+        setToast(te.savedToast);
       });
     }
   }
@@ -115,7 +136,7 @@ export default function GastosPage() {
   // Ouvre automatiquement le prochain brouillon prêt
   useEffect(() => {
     if (editing) return;
-    const next = drafts.find((d) => d.status === "ready");
+    const next = drafts.find((d) => d.status === "ready" && false);
     if (next?.expense) {
       setEditingDraft(next);
       setEditing(next.expense);
@@ -212,6 +233,11 @@ export default function GastosPage() {
           onChange={(e) => { if (e.target.files?.length) addFiles(e.target.files); e.target.value = ""; }} />
       </div>
 
+      {toast ? (
+        <div role="status" className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-olive px-4 py-2 text-sm text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
       {drafts.length > 0 ? (
         <ul className="paper-card mb-6 divide-y divide-line rounded-2xl text-sm">
           {drafts.map((dr) => (
@@ -310,6 +336,8 @@ export default function GastosPage() {
                     {formatDate(e.date)} · {te.categories[e.category] ?? e.category}
                     {e.concept ? ` · ${e.concept}` : ""}
                     {e.affectPct < 100 ? ` · ${e.affectPct} %` : ""}
+                    {e.inversionSujetoPasivo ? ` · ${te.rcBadge}` : ""}
+                    {!e.base && !e.total ? <span className="ml-1 rounded bg-danger/10 px-1.5 text-[10px] text-danger">{te.toComplete}</span> : null}
                   </p>
                 </button>
                 {e.file ? (
@@ -366,6 +394,7 @@ function ExpenseForm({
   const [iva, setIva] = useState(initial.ivaAmount ? String(initial.ivaAmount) : "");
   const [total, setTotal] = useState(initial.total ? String(initial.total) : "");
   const [ivaTouched, setIvaTouched] = useState(false);
+  const [rcRate, setRcRate] = useState(String(initial.rcRate ?? 21));
   const [dedTouched, setDedTouched] = useState(!isNew);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -373,11 +402,28 @@ function ExpenseForm({
   const uploaded = useRef<string[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  const rc = !!d.inversionSujetoPasivo;
   function recompute(nextBase: string, rate: IvaRate, keepIva = ivaTouched) {
     const b = parseNum(nextBase);
+    if (rc) { setIva(""); setTotal(b ? String(round2(b)) : ""); return; }
     const i = keepIva ? parseNum(iva) : calcIva(b, rate);
     if (!keepIva) setIva(i ? String(i) : "");
     setTotal(b ? String(round2(b + i)) : "");
+  }
+
+  function setRc(on: boolean) {
+    const b = parseNum(base);
+    if (on) {
+      setD((x) => ({ ...x, inversionSujetoPasivo: true, ivaRate: "0", ivaDeductible: true, paisProveedor: x.paisProveedor === "ES" || !x.paisProveedor ? "NOUE" : x.paisProveedor }));
+      setIva("");
+      setTotal(b ? String(round2(b)) : "");
+    } else {
+      setD((x) => ({ ...x, inversionSujetoPasivo: false, ivaRate: "21" }));
+      setIvaTouched(false);
+      const i = calcIva(b, "21");
+      setIva(i ? String(i) : "");
+      setTotal(b ? String(round2(b + i)) : "");
+    }
   }
 
   function setNif(v: string) {
@@ -404,20 +450,21 @@ function ExpenseForm({
 
   function save() {
     const b = parseNum(base);
-    if (!d.date || !d.supplier.trim() || !b) {
-      setErr(te.required);
-      return;
-    }
-    const i = parseNum(iva);
-    const tot = parseNum(total) || round2(b + i);
+    void setErr;
+    const i = rc ? 0 : parseNum(iva);
+    const tot = rc ? b : parseNum(total) || round2(b + i);
     const next: Expense = {
       ...d,
-      supplier: d.supplier.trim(),
+      date: d.date || isoDate(),
+      supplier: d.supplier.trim() || d.file?.name || "",
       supplierNif: d.supplierNif.trim(),
       base: round2(b),
       ivaAmount: round2(i),
       total: round2(tot),
       affectPct: Math.min(100, Math.max(0, Math.round(d.affectPct))),
+      ivaRate: rc ? "0" : d.ivaRate,
+      paisProveedor: d.paisProveedor ?? "ES",
+      rcRate: Math.min(100, Math.max(0, parseNum(rcRate) || 0)),
       updatedAt: isoDate(),
     };
     // Ancienne pièce remplacée / retirée → supprimée ; fichiers envoyés mais non retenus → supprimés.
@@ -426,7 +473,8 @@ function ExpenseForm({
     onSave(next);
   }
 
-  const noNif = d.ivaDeductible && !d.supplierNif.trim() && parseNum(iva) > 0;
+  const rcPreview = { ...d, base: parseNum(base), rcRate: parseNum(rcRate) };
+  const noNif = !rc && d.ivaDeductible && !d.supplierNif.trim() && parseNum(iva) > 0;
 
   return (
     <section className="paper-card mb-6 rounded-2xl p-5">
@@ -436,7 +484,7 @@ function ExpenseForm({
       {warnings?.includes("amounts") ? <p className="mt-2 text-sm text-danger">{te.autoAmounts}</p> : null}
       {warnings?.includes("currency") ? <p className="mt-2 text-sm text-danger">{te.autoCurrency}</p> : null}
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label={te.date} required>
+        <Field label={te.date}>
           <Input type="date" value={d.date} onChange={(e) => setD({ ...d, date: e.target.value })} />
         </Field>
         <Field label={te.category}>
@@ -451,24 +499,54 @@ function ExpenseForm({
             {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{te.categories[c]}</option>)}
           </Select>
         </Field>
-        <Field label={te.supplier} required>
+        <Field label={te.supplier}>
           <Input value={d.supplier} onChange={(e) => setD({ ...d, supplier: e.target.value })} />
         </Field>
         <Field label={te.supplierNif} optional>
           <Input value={d.supplierNif} onChange={(e) => setNif(e.target.value)} placeholder="B12345678 / ESB12345678" />
         </Field>
+        <Field label={te.origin}>
+          <Select value={d.paisProveedor ?? "ES"} onChange={(e) => setD({ ...d, paisProveedor: e.target.value as SupplierOrigin })}>
+            {SUPPLIER_ORIGINS.map((o) => <option key={o} value={o}>{te.origins[o]}</option>)}
+          </Select>
+        </Field>
+        <div className="sm:col-span-2 rounded-xl border border-line p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={rc} onChange={(e) => setRc(e.target.checked)} />
+            {te.rcToggle}
+          </label>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{te.rcHint}</p>
+          {rc ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <Field label={te.rcRate}>
+                <Input inputMode="decimal" value={rcRate} onChange={(e) => setRcRate(e.target.value)} />
+              </Field>
+              <div className="text-sm">
+                <p className="text-xs text-muted">{te.rcDevengado}</p>
+                <p className="tabular font-medium">{rcIvaDevengado(rcPreview).toFixed(2)} €</p>
+              </div>
+              <div className="text-sm">
+                <p className="text-xs text-muted">{te.rcDeducible}</p>
+                <p className="tabular font-medium">{rcIvaDeducible(rcPreview).toFixed(2)} €</p>
+              </div>
+            </div>
+          ) : null}
+          {rc && d.paisProveedor === "ES" ? <p className="mt-2 text-xs text-danger">{te.rcSpain}</p> : null}
+          {rc && d.paisProveedor === "UE" ? <p className="mt-2 text-xs text-muted">{te.rc349}</p> : null}
+        </div>
         <Field label={te.invoiceNo}>
           <Input value={d.invoiceNo} onChange={(e) => setD({ ...d, invoiceNo: e.target.value })} />
         </Field>
         <Field label={te.concept}>
           <Input value={d.concept} onChange={(e) => setD({ ...d, concept: e.target.value })} />
         </Field>
-        <Field label={te.base} required>
+        <Field label={te.base}>
           <Input inputMode="decimal" value={base} onChange={(e) => { setBase(e.target.value); recompute(e.target.value, d.ivaRate); }} />
         </Field>
         <Field label={te.ivaRate}>
           <Select
-            value={d.ivaRate}
+            disabled={rc}
+            value={rc ? "0" : d.ivaRate}
             onChange={(e) => {
               const ivaRate = e.target.value as IvaRate;
               const zero = ivaRate === "0" || ivaRate === "exento";
@@ -483,7 +561,8 @@ function ExpenseForm({
         <Field label={te.ivaAmount} hint={te.ivaAmountHint}>
           <Input
             inputMode="decimal"
-            value={iva}
+            disabled={rc}
+            value={rc ? "0" : iva}
             onChange={(e) => {
               setIva(e.target.value);
               setIvaTouched(true);
@@ -493,7 +572,7 @@ function ExpenseForm({
           />
         </Field>
         <Field label={te.total}>
-          <Input inputMode="decimal" value={total} onChange={(e) => setTotal(e.target.value)} />
+          <Input inputMode="decimal" disabled={rc} value={total} onChange={(e) => setTotal(e.target.value)} />
         </Field>
         <Field label={te.affect} hint={te.affectHint}>
           <Input
@@ -511,7 +590,7 @@ function ExpenseForm({
             />
             {te.ivaDed}
           </label>
-          <p className="mt-1 text-xs leading-relaxed text-muted">{te.ivaDedHint}</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted">{rc ? te.rcDedHint : te.ivaDedHint}</p>
           {noNif ? <p className="mt-1 text-xs text-danger">{te.ivaDedNoNif}</p> : null}
         </div>
       </div>

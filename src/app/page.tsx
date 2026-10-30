@@ -21,7 +21,7 @@ import {
 import { AEAT_LINKS } from "@/lib/aeat";
 import type { Client, Invoice } from "@/lib/types";
 import type { Locale } from "@/lib/i18n";
-import { inQuarter, model130, sumExpenses } from "@/lib/expenses";
+import { inQuarter, model130, reverseChargeSummary, sumExpenses } from "@/lib/expenses";
 
 export default function DashboardPage() {
   const { invoices, clients, expenses, settings, loadSample, sampleAvailable } = useStore();
@@ -465,7 +465,12 @@ function TaxEstimate({
 }) {
   const t = useT();
   const tt = t.tax;
-  const soportado = sumExpenses(expenses.filter((e) => inQuarter(e, quarter))).ivaDeductible;
+  const qExp = expenses.filter((e) => inQuarter(e, quarter));
+  const rc = reverseChargeSummary(qExp);
+  const soportadoTotal = sumExpenses(qExp).ivaDeductible;
+  const soportado = Math.round((soportadoTotal - rc.ueDeducible - rc.noUeDeducible) * 100) / 100;
+  const rcDevengado = rc.ueDevengado + rc.noUeDevengado;
+  const hasRc = rc.ueBase > 0 || rc.noUeBase > 0;
   const m = model130(invoices, expenses, quarter.year, quarter.q);
   const Row = ({ label, value, strong }: { label: string; value: number; strong?: boolean }) => (
     <li className={`flex justify-between gap-3 py-1 ${strong ? "font-medium" : ""}`}>
@@ -485,9 +490,15 @@ function TaxEstimate({
           <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">{tt.m303}</p>
           <ul className="mt-2 divide-y divide-line text-sm">
             <Row label={tt.devengado} value={0} />
+            {rc.noUeBase > 0 ? <Row label={tt.rcNoUe} value={rc.noUeDevengado} /> : null}
+            {rc.ueBase > 0 ? <Row label={tt.rcUe} value={rc.ueDevengado} /> : null}
             <Row label={tt.soportado} value={soportado} />
-            <Row label={tt.resultado303} value={-soportado} strong />
+            {rc.noUeBase > 0 ? <Row label={tt.rcDedInt} value={rc.noUeDeducible} /> : null}
+            {rc.ueBase > 0 ? <Row label={tt.rcDedUe} value={rc.ueDeducible} /> : null}
+            <Row label={tt.resultado303} value={Math.round((rcDevengado - soportadoTotal) * 100) / 100} strong />
           </ul>
+          {hasRc ? <p className="mt-2 text-xs leading-relaxed text-muted">{tt.rcCasillas}</p> : null}
+          {rc.needs349 ? <p className="mt-2 text-xs leading-relaxed text-danger">{tt.rc349}</p> : null}
           <p className="mt-2 text-xs leading-relaxed text-muted">{tt.hint303}</p>
         </div>
         <div>

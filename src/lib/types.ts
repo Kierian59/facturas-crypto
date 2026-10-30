@@ -112,6 +112,8 @@ export const EXPENSE_CATEGORIES = [
   "software", "equipos", "telefono", "cuota_autonomo", "gestoria", "publicidad",
   "formacion", "comisiones", "suministros", "viajes", "otros",
 ] as const;
+export const SUPPLIER_ORIGINS = ["ES", "UE", "NOUE"] as const;
+export type SupplierOrigin = (typeof SUPPLIER_ORIGINS)[number];
 export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 
 /** Gasto deducible (factura recibida de un proveedor). Montants en EUR. */
@@ -130,6 +132,12 @@ export type Expense = {
   /** % de afectación a la actividad (100 = totalmente profesional). */
   affectPct: number;
   ivaDeductible: boolean;
+  /** Inversión del sujeto pasivo (autoliquidación) : factura extranjera sin IVA, el cliente autoliquida. */
+  inversionSujetoPasivo?: boolean;
+  /** Origen del proveedor : ES, UE (intracomunitario) o NOUE (fuera UE, p. ej. UK/US). */
+  paisProveedor?: SupplierOrigin;
+  /** Tipo IVA de autoliquidación (%, por defecto 21). */
+  rcRate?: number;
   file: ProofFileRef | null;
   notes: string;
   createdAt: string;
