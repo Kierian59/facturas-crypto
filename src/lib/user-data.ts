@@ -6,6 +6,10 @@ import {
   type CryptoPayment,
   type CryptoProof,
   type Database,
+  type Expense,
+  type ExpenseCategory,
+  type IvaRate,
+  type ProofFileRef,
   type Invoice,
   type InvoiceStatus,
   type LineItem,
@@ -133,11 +137,29 @@ function invoiceFromRow(row: {
   };
 }
 
+function expenseFromRow(row: {
+  id: string; date: string; supplier: string; supplierNif: string; invoiceNo: string; concept: string;
+  category: string; base: number; ivaRate: string; ivaAmount: number; total: number; affectPct: number;
+  ivaDeductible: boolean; file: unknown; notes: string; createdAt: string; updatedAt: string;
+}): Expense {
+  const f = row.file as ProofFileRef | null;
+  return {
+    ...row,
+    category: row.category as ExpenseCategory,
+    ivaRate: row.ivaRate as IvaRate,
+    file: f && typeof f === "object" && typeof f.id === "string" ? f : null,
+  };
+}
+
+const num = (v: unknown, d = 0) => (typeof v === "number" && Number.isFinite(v) ? v : d);
+const str = (v: unknown, max = 500) => (typeof v === "string" ? v.slice(0, max) : "");
+
 export async function getUserDatabase(userId: string): Promise<Database & { isNew: boolean }> {
-  const [settingsRow, clients, invoices] = await Promise.all([
+  const [settingsRow, clients, invoices, expenses] = await Promise.all([
     prisma.settings.findUnique({ where: { userId } }),
     prisma.client.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
     prisma.invoice.findMany({ where: { userId }, orderBy: { createdAt: "asc" } }),
+    prisma.expense.findMany({ where: { userId }, orderBy: { date: "asc" } }),
   ]);
 
   if (!settingsRow) {
@@ -146,6 +168,7 @@ export async function getUserDatabase(userId: string): Promise<Database & { isNe
       settings: emptySettings(),
       clients: [],
       invoices: [],
+      expenses: [],
       isNew: true,
     };
   }
@@ -155,6 +178,7 @@ export async function getUserDatabase(userId: string): Promise<Database & { isNe
     settings: settingsFromRow(settingsRow),
     clients: clients.map(clientFromRow),
     invoices: invoices.map(invoiceFromRow),
+    expenses: expenses.map(expenseFromRow),
     isNew: false,
   };
 }
@@ -164,6 +188,12 @@ export async function saveUserDatabase(userId: string, db: Database): Promise<Da
   const wallets = settings.wallets as unknown as Prisma.InputJsonValue;
 
   await prisma.$transaction(async (tx) => {
+    const [prevInv, prevExp] = await Promise.all([
+      tx.invoice.findMany({ where: { userId }, select: { id: true } }),
+      tx.expense.findMany({ where: { userId }, select: { id: true } }),
+    ]);
+    const prevIds = [...prevInv, ...prevExp].map((r) => r.id);
+
     await tx.settings.upsert({
       where: { userId },
       create: {
@@ -244,9 +274,49 @@ export async function saveUserDatabase(userId: string, db: Database): Promise<Da
       });
     }
 
-    // Les pièces jointes d'un justificatif partent avec leur facture.
+    // Gastos : seulement si le client les envoie (un ancien onglet sans « expenses » ne doit rien effacer).
+    let expenseIds: string[];
+    if (Array.isArray(db.expenses)) {
+      await tx.expense.deleteMany({ where: { userId } });
+      if (db.expenses.length > 0) {
+        await tx.expense.createMany({
+          data: db.expenses.map((e) => ({
+            userId,
+            id: str(e.id, 100),
+            date: str(e.date, 10),
+            supplier: str(e.supplier),
+            supplierNif: str(e.supplierNif, 40),
+            invoiceNo: str(e.invoiceNo, 100),
+            concept: str(e.concept, 1000),
+            category: str(e.category, 40) || "otros",
+            base: num(e.base),
+            ivaRate: str(e.ivaRate, 10) || "21",
+            ivaAmount: num(e.ivaAmount),
+            total: num(e.total),
+            affectPct: Math.min(100, Math.max(0, num(e.affectPct, 100))),
+            ivaDeductible: Boolean(e.ivaDeductible),
+            file: (e.file ?? undefined) as unknown as Prisma.InputJsonValue | undefined,
+            notes: str(e.notes, 2000),
+            createdAt: str(e.createdAt, 40),
+            updatedAt: str(e.updatedAt, 40),
+          })),
+        });
+      }
+      expenseIds = db.expenses.map((e) => e.id);
+    } else {
+      expenseIds = (await tx.expense.findMany({ where: { userId }, select: { id: true } })).map((e) => e.id);
+    }
+
+    // Les pièces jointes partent avec leur facture ou leur gasto (ProofFile.invoiceId = id du propriétaire).
+    // Un fichier d'un gasto pas encore enregistré (formulaire ouvert) a 1 h de grâce ; un propriétaire supprimé = purge immédiate.
+    const keep = [...db.invoices.map((inv) => inv.id), ...expenseIds];
+    const removed = prevIds.filter((id) => !keep.includes(id));
     await tx.proofFile.deleteMany({
-      where: { userId, invoiceId: { notIn: db.invoices.map((inv) => inv.id) } },
+      where: {
+        userId,
+        invoiceId: { notIn: keep },
+        OR: [{ invoiceId: { in: removed } }, { createdAt: { lt: new Date(Date.now() - 3_600_000) } }],
+      },
     });
   });
 

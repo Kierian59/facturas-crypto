@@ -21,9 +21,10 @@ import {
 import { AEAT_LINKS } from "@/lib/aeat";
 import type { Client, Invoice } from "@/lib/types";
 import type { Locale } from "@/lib/i18n";
+import { inQuarter, model130, sumExpenses } from "@/lib/expenses";
 
 export default function DashboardPage() {
-  const { invoices, clients, settings, loadSample, sampleAvailable } = useStore();
+  const { invoices, clients, expenses, settings, loadSample, sampleAvailable } = useStore();
   const t = useT();
   const locale = settings.locale;
   const today = isoDate();
@@ -118,6 +119,8 @@ export default function DashboardPage() {
         </div>
         <p className="mt-2 text-xs text-muted">{t.dash.postInvoicesHint}</p>
       </section>
+
+      <TaxEstimate invoices={invoices} expenses={expenses} quarter={stats.f.toFile} locale={locale} />
 
       <section className="mt-6 paper-card rounded-2xl p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -448,6 +451,58 @@ function DeclaredSection({
           </ul>
         </>
       )}
+    </section>
+  );
+}
+
+function TaxEstimate({
+  invoices, expenses, quarter, locale,
+}: {
+  invoices: Invoice[];
+  expenses: import("@/lib/types").Expense[];
+  quarter: import("@/lib/tax").Quarter;
+  locale: Locale;
+}) {
+  const t = useT();
+  const tt = t.tax;
+  const soportado = sumExpenses(expenses.filter((e) => inQuarter(e, quarter))).ivaDeductible;
+  const m = model130(invoices, expenses, quarter.year, quarter.q);
+  const Row = ({ label, value, strong }: { label: string; value: number; strong?: boolean }) => (
+    <li className={`flex justify-between gap-3 py-1 ${strong ? "font-medium" : ""}`}>
+      <span>{label}</span>
+      <span className="tabular">{formatEur(value, locale)}</span>
+    </li>
+  );
+  return (
+    <section className="mt-6 paper-card rounded-2xl p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-display text-xl">{tt.title}</h2>
+        <Link href="/gastos" className="text-xs uppercase tracking-wide text-terracotta">{tt.seeExpenses}</Link>
+      </div>
+      <p className="mt-1 text-sm text-muted">{tt.period(quarter.label)}</p>
+      <div className="mt-4 grid gap-5 md:grid-cols-2">
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">{tt.m303}</p>
+          <ul className="mt-2 divide-y divide-line text-sm">
+            <Row label={tt.devengado} value={0} />
+            <Row label={tt.soportado} value={soportado} />
+            <Row label={tt.resultado303} value={-soportado} strong />
+          </ul>
+          <p className="mt-2 text-xs leading-relaxed text-muted">{tt.hint303}</p>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-[0.16em] text-terracotta">{tt.m130}</p>
+          <ul className="mt-2 divide-y divide-line text-sm">
+            <Row label={tt.ingresos} value={m.ingresosYtd} />
+            <Row label={tt.gastos} value={-m.gastosYtd} />
+            <Row label={tt.rendimiento} value={m.rendimientoYtd} />
+            <Row label={tt.cuota20} value={m.cuota20} />
+            <Row label={tt.previos} value={-m.previousPayments} />
+            <Row label={tt.aIngresar} value={m.aIngresar} strong />
+          </ul>
+          <p className="mt-2 text-xs leading-relaxed text-muted">{tt.hint130}</p>
+        </div>
+      </div>
     </section>
   );
 }

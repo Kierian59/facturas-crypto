@@ -38,6 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/", label: t.nav.dashboard, icon: IconHome },
     { href: "/facturas", label: t.nav.facturas, icon: IconSheet },
     { href: "/clients", label: t.nav.clients, icon: IconPeople },
+    { href: "/gastos", label: t.nav.expenses, icon: IconReceipt },
     { href: "/parametres", label: t.nav.settings, icon: IconGear },
   ];
 
@@ -118,7 +119,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav className="no-print md:hidden fixed bottom-0 inset-x-0 z-20 border-t border-line bg-card/95 backdrop-blur">
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {NAV.map((item) => {
             const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
             return (
@@ -171,6 +172,14 @@ function IconGear() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
       <circle cx="12" cy="12" r="3" />
       <path d="M12 3.5v2.2M12 18.3V20.5M4.8 6.5l1.6 1.6M17.6 15.9l1.6 1.6M3.5 12h2.2M18.3 12H20.5M4.8 17.5l1.6-1.6M17.6 8.1l1.6-1.6" />
+    </svg>
+  );
+}
+function IconReceipt() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
+      <path d="M9 8h6M9 12h6M9 16h3" />
     </svg>
   );
 }

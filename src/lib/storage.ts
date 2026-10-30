@@ -50,7 +50,8 @@ function migrate(raw: unknown): Database {
         };
       })
     : [];
-  return { version: 2, settings, clients, invoices };
+  const expenses = Array.isArray(raw.expenses) ? (raw.expenses as Database["expenses"]) : undefined;
+  return { version: 2, settings, clients, invoices, ...(expenses ? { expenses } : {}) };
 }
 
 export function loadDb(): Database {

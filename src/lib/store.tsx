@@ -4,7 +4,7 @@ import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode,
 } from "react";
 import { useAuth } from "@clerk/nextjs";
-import type { Client, CryptoPayment, Database, Invoice, Settings } from "./types";
+import type { Client, CryptoPayment, Database, Expense, Invoice, Settings } from "./types";
 import { emptyDatabase, emptySettings } from "./types";
 import { loadDb, parseImport } from "./storage";
 import { padSeq, uid, isoDate } from "./format";
@@ -14,7 +14,9 @@ import { invoiceHuella } from "./aeat";
 import { IMPORT_FLAG, fetchMe, putMe, postImport } from "./store-api";
 
 type Store = {
-  ready: boolean; saving: boolean; db: Database; settings: Settings; clients: Client[]; invoices: Invoice[];
+  ready: boolean; saving: boolean; db: Database; settings: Settings; clients: Client[]; invoices: Invoice[]; expenses: Expense[];
+  upsertExpense: (e: Expense) => void;
+  deleteExpense: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   setWallets: (wallets: Settings["wallets"]) => void;
   completeOnboarding: (s: Settings) => void;
@@ -69,7 +71,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const remote = await fetchMe();
       if (cancelled) return;
       let next = remote
-        ? { version: 2 as const, settings: remote.settings, clients: remote.clients, invoices: remote.invoices }
+        ? { version: 2 as const, settings: remote.settings, clients: remote.clients, invoices: remote.invoices, expenses: remote.expenses ?? [] }
         : emptyDatabase();
       const isNew = Boolean(remote?.isNew);
       const alreadyImported = typeof window !== "undefined" && window.localStorage.getItem(IMPORT_FLAG) === "1";
@@ -78,7 +80,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (local.settings.onboarded || local.clients.length > 0 || local.invoices.length > 0) {
           const imported = await postImport(local);
           if (imported && imported.imported !== false) {
-            next = { version: 2, settings: imported.settings, clients: imported.clients, invoices: imported.invoices };
+            next = { version: 2, settings: imported.settings, clients: imported.clients, invoices: imported.invoices, expenses: imported.expenses ?? [] };
           }
           window.localStorage.setItem(IMPORT_FLAG, "1");
         }
@@ -101,7 +103,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [mutate]);
 
   const completeOnboarding = useCallback((s: Settings) => {
-    mutate(() => ({ version: 2, settings: { ...s, onboarded: true }, clients: [], invoices: [] }));
+    mutate(() => ({ version: 2, settings: { ...s, onboarded: true }, clients: [], invoices: [], expenses: [] }));
   }, [mutate]);
 
   const upsertClient = useCallback((c: Client) => {
@@ -120,6 +122,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const i = d.invoices.findIndex((x) => x.id === inv.id);
       return { ...d, invoices: i === -1 ? [...d.invoices, inv] : d.invoices.map((x) => (x.id === inv.id ? inv : x)) };
     });
+  }, [mutate]);
+
+  const upsertExpense = useCallback((e: Expense) => {
+    mutate((d) => {
+      const list = d.expenses ?? [];
+      const i = list.findIndex((x) => x.id === e.id);
+      return { ...d, expenses: i === -1 ? [...list, e] : list.map((x) => (x.id === e.id ? e : x)) };
+    });
+  }, [mutate]);
+
+  const deleteExpense = useCallback((id: string) => {
+    // La pièce jointe (ProofFile) est purgée côté serveur à la sauvegarde.
+    mutate((d) => ({ ...d, expenses: (d.expenses ?? []).filter((x) => x.id !== id) }));
   }, [mutate]);
 
   const emitInvoice = useCallback(async (id: string) => {
@@ -217,7 +232,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const importData = useCallback((text: string) => {
     try {
-      const next = parseImport(text);
+      const parsed = parseImport(text);
+      const next = { ...parsed, expenses: parsed.expenses ?? dbRef.current.expenses ?? [] };
       dbRef.current = next;
       setDb(next);
       void persist(next);
@@ -228,18 +244,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [persist]);
 
   const resetAll = useCallback(() => {
-    const empty = { version: 2 as const, settings: emptySettings(), clients: [] as Client[], invoices: [] as Invoice[] };
+    const empty = { version: 2 as const, settings: emptySettings(), clients: [] as Client[], invoices: [] as Invoice[], expenses: [] as Expense[] };
     dbRef.current = empty;
     setDb(empty);
     void persist(empty);
   }, [persist]);
 
   const value = useMemo<Store>(() => ({
-    ready, saving, db, settings: db.settings, clients: db.clients, invoices: db.invoices,
+    ready, saving, db, settings: db.settings, clients: db.clients, invoices: db.invoices, expenses: db.expenses ?? [],
+    upsertExpense, deleteExpense,
     updateSettings, setWallets, completeOnboarding, upsertClient, deleteClient, upsertInvoice,
     emitInvoice, recordPayment, duplicateInvoice, deleteInvoice, loadSample, exportData, importData, resetAll,
     sampleAvailable: canLoadSample(db),
-  }), [ready, saving, db, updateSettings, setWallets, completeOnboarding, upsertClient, deleteClient, upsertInvoice, emitInvoice, recordPayment, duplicateInvoice, deleteInvoice, loadSample, exportData, importData, resetAll]);
+  }), [ready, saving, db, updateSettings, setWallets, completeOnboarding, upsertClient, deleteClient, upsertInvoice, emitInvoice, recordPayment, duplicateInvoice, deleteInvoice, loadSample, exportData, importData, resetAll, upsertExpense, deleteExpense]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

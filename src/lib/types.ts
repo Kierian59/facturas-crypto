@@ -106,11 +106,43 @@ export type Invoice = {
   updatedAt: string;
 };
 
+export type IvaRate = "21" | "10" | "4" | "0" | "exento";
+
+export const EXPENSE_CATEGORIES = [
+  "software", "equipos", "telefono", "cuota_autonomo", "gestoria", "publicidad",
+  "formacion", "comisiones", "suministros", "viajes", "otros",
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+/** Gasto deducible (factura recibida de un proveedor). Montants en EUR. */
+export type Expense = {
+  id: string;
+  date: string;
+  supplier: string;
+  supplierNif: string;
+  invoiceNo: string;
+  concept: string;
+  category: ExpenseCategory;
+  base: number;
+  ivaRate: IvaRate;
+  ivaAmount: number;
+  total: number;
+  /** % de afectación a la actividad (100 = totalmente profesional). */
+  affectPct: number;
+  ivaDeductible: boolean;
+  file: ProofFileRef | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Database = {
   version: 2;
   settings: Settings;
   clients: Client[];
   invoices: Invoice[];
+  /** Absent dans les anciens exports / anciens onglets : traité comme « non fourni ». */
+  expenses?: Expense[];
 };
 
 export const CRYPTO_ASSETS = [
@@ -181,5 +213,6 @@ export function emptyDatabase(): Database {
     settings: emptySettings(),
     clients: [],
     invoices: [],
+    expenses: [],
   };
 }

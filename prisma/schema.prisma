@@ -29,18 +29,18 @@ model Settings {
 }
 
 model Client {
-  userId      String
-  id          String
-  brand       String
-  country     String  @default("")
-  countryCode String  @default("")
-  address     String  @default("")
-  taxId       String  @default("")
+  userId       String
+  id           String
+  brand        String
+  country      String  @default("")
+  countryCode  String  @default("")
+  address      String  @default("")
+  taxId        String  @default("")
   companyRegNo String?
-  email       String  @default("")
-  notes       String  @default("")
-  horsUE      Boolean @default(true)
-  createdAt   String  @default("")
+  email        String  @default("")
+  notes        String  @default("")
+  horsUE       Boolean @default(true)
+  createdAt    String  @default("")
 
   @@id([userId, id])
   @@index([userId])
@@ -79,9 +79,34 @@ model ProofFile {
   name      String
   mime      String
   size      Int
-  data      String   // contenu en base64 (sans préfixe data:)
+  data      String // contenu en base64 (sans préfixe data:)
   createdAt DateTime @default(now())
 
   @@id([userId, id])
   @@index([userId, invoiceId])
+}
+
+/// Gasto deducible (factura de proveedor). La pièce jointe est dans ProofFile (invoiceId = id du gasto).
+model Expense {
+  userId        String
+  id            String
+  date          String  @default("")
+  supplier      String  @default("")
+  supplierNif   String  @default("")
+  invoiceNo     String  @default("")
+  concept       String  @default("")
+  category      String  @default("otros")
+  base          Float   @default(0)
+  ivaRate       String  @default("21")
+  ivaAmount     Float   @default(0)
+  total         Float   @default(0)
+  affectPct     Float   @default(100)
+  ivaDeductible Boolean @default(true)
+  file          Json?
+  notes         String  @default("")
+  createdAt     String  @default("")
+  updatedAt     String  @default("")
+
+  @@id([userId, id])
+  @@index([userId])
 }

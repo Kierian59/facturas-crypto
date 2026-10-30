@@ -43,6 +43,7 @@ export async function PUT(req: Request) {
     settings: body.settings,
     clients: body.clients,
     invoices: body.invoices,
+    expenses: Array.isArray((body as Database).expenses) ? (body as Database).expenses : undefined,
   };
 
   try {
